@@ -12,6 +12,7 @@ const gamesSchema = v.object({
   turn: v.number(),
   finished: v.boolean(),
   winner: v.id('users'),
+  noPlayAgainPlayers: v.number(),
 });
 
 export type Game = Infer<typeof gamesSchema>;
@@ -44,6 +45,7 @@ export const createGame = mutation({
       turn: 0,
       finished: false,
       winner: null,
+      noPlayAgainPlayers: 0,
     });
 
     dealtCards.forEach(async (deal) => {
@@ -59,38 +61,41 @@ export const createGame = mutation({
   },
 });
 
-// export const playAgain = mutation({
-//   args: { noExpectedPlayers: v.number(), players: v.array(v.id('players')) },
-//   handler: async (ctx, { noExpectedPlayers, players }) => {
-//     const { activeCard, dealtCards } = deal(noExpectedPlayers);
+export const playAgain = mutation({
+  args: { noExpectedPlayers: v.number(), players: v.array(v.id('users')) },
+  handler: async (ctx, { noExpectedPlayers, players }) => {
+    const { activeCard, dealtCards } = deal(noExpectedPlayers);
 
-//     const gameId = await ctx.db.insert('games', {
-//       players,
-//       noExpectedPlayers,
-//       activeCard,
-//       started: true,
-//       turn: 1,
-//       finished: false,
-//       winner: null,
-//     });
+    const gameId = await ctx.db.insert('games', {
+      players,
+      noExpectedPlayers,
+      activeCard,
+      started: true,
+      turn: 1,
+      finished: false,
+      winner: null,
+      noPlayAgainPlayers: 0,
+    });
 
-//     for (const playerId of players) {
-//       const gameDetails = await ctx.db
-//         .query('game_details')
-//         .filter((q) =>
-//           q.and(
-//             q.eq(q.field('gameId'), gameId),
-//             q.eq(q.field('playerId'), null)
-//           )
-//         )
-//         .first();
+    for (const [index, userId] of players.entries()) {
+      await ctx.db.insert('game_details', {
+        gameId,
+        userId,
+        cards: dealtCards[index],
+        score: 0,
+      });
+    }
 
-//       if (gameDetails) await ctx.db.patch(gameDetails._id, { playerId });
-//     }
+    return { gameId };
+  },
+});
 
-//     return { gameId };
-//   },
-// });
+export const votePlayAgain = mutation({
+  args: { gameId: v.id('games'), noVotes: v.number() },
+  handler: async (ctx, { gameId, noVotes }) => {
+    await ctx.db.patch(gameId, { noPlayAgainPlayers: noVotes + 1 });
+  },
+});
 
 export const joinGame = mutation({
   args: { gameId: v.id('games'), email: v.string() },
