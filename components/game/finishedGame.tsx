@@ -6,21 +6,21 @@ import { useQuery, useMutation } from 'convex/react';
 import { Id } from '../../convex/_generated/dataModel';
 import { api } from '../../convex/_generated/api';
 import { Game } from '../../convex/games';
-import { Player } from '../../convex/players';
+import { User } from '../../convex/users';
 
 type Result = {
-  username?: string;
+  email?: string;
   score: number;
 };
 
 type FinishedGameProps = {
   game: Game;
-  playerId: Id<'players'>;
+  userId: Id<'users'>;
 };
 
-const FinishedGame = ({ game, playerId }: FinishedGameProps) => {
-  const player: Player = useQuery(api.players.getPlayer, {
-    id: playerId,
+const FinishedGame = ({ game, userId }: FinishedGameProps) => {
+  const user: User = useQuery(api.users.getUser, {
+    id: userId,
   });
 
   //   const playAgainMutation = useMutation(api.games.playAgain);
@@ -32,7 +32,7 @@ const FinishedGame = ({ game, playerId }: FinishedGameProps) => {
 
     for (const result of results) {
       if (result.score > score) {
-        winner = result.username;
+        winner = result.email;
       }
     }
 
@@ -40,20 +40,20 @@ const FinishedGame = ({ game, playerId }: FinishedGameProps) => {
   };
 
   const results: Result[] = [];
-  game.players.forEach((gamePlayerId: Id<'players'>) => {
+  game.players.forEach((gameUserId: Id<'users'>) => {
     const gameDetails = useQuery(api.gameDetails.getGameDetails, {
       gameId: game._id as Id<'games'>,
-      playerId: gamePlayerId as Id<'players'>,
+      userId: gameUserId as Id<'users'>,
     });
 
-    const player = useQuery(api.players.getPlayer, {
-      id: gamePlayerId,
+    const user = useQuery(api.users.getUser, {
+      id: gameUserId,
     });
 
     // handles score of 0
     if (typeof gameDetails?.score === 'number') {
       results.push({
-        username: player?.username,
+        email: user?.email,
         score: gameDetails?.score,
       });
     }
@@ -63,12 +63,12 @@ const FinishedGame = ({ game, playerId }: FinishedGameProps) => {
     console.log('play again!');
     const { gameId } = await createGameMutation({
       noExpectedPlayers: game.noExpectedPlayers,
-      username: player.username,
+      email: user.email,
     });
 
     router.replace({
       pathname: `/game/${gameId}`,
-      params: { username: player.username },
+      params: { email: user.email },
     });
 
     // receive game id, replace router with game id?
@@ -81,8 +81,7 @@ const FinishedGame = ({ game, playerId }: FinishedGameProps) => {
   };
 
   const joinGame = () => {
-    // router.replace({ pathname: `/joinGame`, params: { playerId } });
-    router.replace({ pathname: '/', params: { playerId } });
+    // add count of players who want to play again
   };
 
   if (!results || results.length === 0) return null;
@@ -92,8 +91,8 @@ const FinishedGame = ({ game, playerId }: FinishedGameProps) => {
       <Text style={styles.winner}>Winner is: {findTopScorer(results)}</Text>
       <View>
         {results?.map((result: Result) => (
-          <Text key={`result-${result.username}`}>
-            {result.username} - {result.score}
+          <Text key={`result-${result.email}`}>
+            {result.email} - {result.score}
           </Text>
         ))}
       </View>

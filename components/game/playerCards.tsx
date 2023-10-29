@@ -14,14 +14,14 @@ const iconWidth = (Dimensions.get('window').width - 60) / 6;
 
 type PlayerCardsProps = {
   gameId: string;
-  playerId: string;
+  userId: string;
   guess: (card: Card, icon: number) => Promise<'red' | 'yellow' | 'green'>;
 };
 
-const PlayerCards = ({ gameId, playerId, guess }: PlayerCardsProps) => {
+const PlayerCards = ({ gameId, userId, guess }: PlayerCardsProps) => {
   const cards = useQuery(api.gameDetails.getPlayerCards, {
     gameId: gameId as Id<'games'>,
-    playerId: playerId as Id<'players'>,
+    userId: userId as Id<'users'>,
   });
 
   const [disabled, setDisabled] = useState(false);

@@ -7,11 +7,11 @@ const gamesSchema = v.object({
   _id: v.id('games'),
   noExpectedPlayers: v.number(),
   activeCard: v.array(v.number()),
-  players: v.array(v.id('players')),
+  players: v.array(v.id('users')),
   started: v.boolean(),
   turn: v.number(),
   finished: v.boolean(),
-  winner: v.id('players'),
+  winner: v.id('users'),
 });
 
 export type Game = Infer<typeof gamesSchema>;
@@ -24,22 +24,20 @@ export const getGame = query({
 });
 
 export const createGame = mutation({
-  args: { noExpectedPlayers: v.number(), username: v.string() },
-  handler: async (ctx, { noExpectedPlayers, username }) => {
+  args: { noExpectedPlayers: v.number(), email: v.string() },
+  handler: async (ctx, { noExpectedPlayers, email }) => {
     // the table needs to already exist for this to work
-    const player = await ctx.db
-      .query('players')
-      .filter((q) => q.eq(q.field('username'), username))
+    const user = await ctx.db
+      .query('users')
+      .filter((q) => q.eq(q.field('email'), email))
       .first();
 
-    const playerId = player
-      ? player._id
-      : await ctx.db.insert('players', { username });
+    const userId = user ? user._id : await ctx.db.insert('users', { email });
 
     const { activeCard, dealtCards } = deal(noExpectedPlayers);
 
     const gameId = await ctx.db.insert('games', {
-      players: [playerId],
+      players: [userId],
       noExpectedPlayers,
       activeCard,
       started: false,
@@ -51,13 +49,13 @@ export const createGame = mutation({
     dealtCards.forEach(async (deal) => {
       await ctx.db.insert('game_details', {
         gameId,
-        playerId: null,
+        userId: null,
         cards: deal,
         score: 0,
       });
     });
 
-    return { gameId, playerId };
+    return { gameId, userId };
   },
 });
 
@@ -95,26 +93,24 @@ export const createGame = mutation({
 // });
 
 export const joinGame = mutation({
-  args: { gameId: v.id('games'), username: v.string() },
-  handler: async (ctx, { gameId, username }) => {
+  args: { gameId: v.id('games'), email: v.string() },
+  handler: async (ctx, { gameId, email }) => {
     // the table needs to already exist for this to work
-    const player = await ctx.db
-      .query('players')
-      .filter((q) => q.eq(q.field('username'), username))
+    const user = await ctx.db
+      .query('users')
+      .filter((q) => q.eq(q.field('email'), email))
       .first();
 
-    // get player id, if new player save player
-    const playerId = player
-      ? player._id
-      : await ctx.db.insert('players', { username });
+    // get user id, if new user save user
+    const userId = user ? user._id : await ctx.db.insert('users', { email });
 
     const { players } = await ctx.db.get(gameId);
     // if player not already in game, add player
-    if (!players.includes(playerId)) {
-      await ctx.db.patch(gameId, { players: [...players, playerId] });
+    if (!players.includes(userId)) {
+      await ctx.db.patch(gameId, { players: [...players, userId] });
     }
 
-    return { playerId };
+    return { userId };
   },
 });
 
@@ -123,18 +119,15 @@ export const startGame = mutation({
   handler: async (ctx, { gameId }) => {
     const { players } = await ctx.db.get(gameId);
 
-    for (const playerId of players) {
+    for (const userId of players) {
       const gameDetails = await ctx.db
         .query('game_details')
         .filter((q) =>
-          q.and(
-            q.eq(q.field('gameId'), gameId),
-            q.eq(q.field('playerId'), null)
-          )
+          q.and(q.eq(q.field('gameId'), gameId), q.eq(q.field('userId'), null))
         )
         .first();
 
-      if (gameDetails) await ctx.db.patch(gameDetails._id, { playerId });
+      if (gameDetails) await ctx.db.patch(gameDetails._id, { userId });
     }
 
     await ctx.db.patch(gameId, { started: true, turn: 1 });
@@ -144,11 +137,11 @@ export const startGame = mutation({
 export const takeTurn = mutation({
   args: {
     gameId: v.id('games'),
-    playerId: v.id('players'),
+    userId: v.id('users'),
     card: v.array(v.number()),
     turn: v.number(),
   },
-  handler: async (ctx, { gameId, playerId, card, turn }) => {
+  handler: async (ctx, { gameId, userId, card, turn }) => {
     const game = await ctx.db.get(gameId);
 
     if (turn !== game.turn) return { tooSlow: true };
@@ -160,10 +153,7 @@ export const takeTurn = mutation({
     } = await ctx.db
       .query('game_details')
       .filter((q) =>
-        q.and(
-          q.eq(q.field('gameId'), gameId),
-          q.eq(q.field('playerId'), playerId)
-        )
+        q.and(q.eq(q.field('gameId'), gameId), q.eq(q.field('userId'), userId))
       )
       .first();
 
@@ -179,7 +169,7 @@ export const takeTurn = mutation({
         activeCard: card,
         turn: game.turn + 1,
         finished: true,
-        winner: playerId,
+        winner: userId,
       });
     } else {
       // playing

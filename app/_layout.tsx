@@ -1,23 +1,41 @@
 import { Slot } from 'expo-router';
-// import { ClerkProvider, useAuth } from '@clerk/clerk-react';
-// import { ConvexProviderWithClerk } from 'convex/react-clerk';
 import { ConvexProvider, ConvexReactClient } from 'convex/react';
+import { ClerkProvider } from '@clerk/clerk-expo';
+import * as SecureStore from 'expo-secure-store';
 import 'react-native-get-random-values';
 
-import { CONVEX_URL, CLERK_KEY } from '@env';
+import { CONVEX_URL, CLERK_PUBLISHABLE_KEY } from '@env';
 
 const convex = new ConvexReactClient(CONVEX_URL, {
   unsavedChangesWarning: false,
 });
 
+const tokenCache = {
+  async getToken(key: string) {
+    try {
+      return SecureStore.getItemAsync(key);
+    } catch (err) {
+      return null;
+    }
+  },
+  async saveToken(key: string, value: string) {
+    try {
+      return SecureStore.setItemAsync(key, value);
+    } catch (err) {
+      return;
+    }
+  },
+};
+
 export default function App() {
   return (
-    // <ClerkProvider publishableKey="pk_test_dW5jb21tb24tbXVza3JhdC00LmNsZXJrLmFjY291bnRzLmRldiQ">
-    //   <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
     <ConvexProvider client={convex}>
-      <Slot />
+      <ClerkProvider
+        publishableKey={CLERK_PUBLISHABLE_KEY}
+        tokenCache={tokenCache}
+      >
+        <Slot />
+      </ClerkProvider>
     </ConvexProvider>
-    //   </ConvexProviderWithClerk>
-    // </ClerkProvider>
   );
 }

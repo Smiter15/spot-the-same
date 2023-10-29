@@ -28,7 +28,7 @@ export default function Game() {
   const [score, setScore] = useState(0); // keep client side?
   const [sound, setSound] = useState<any>();
 
-  const { id: gameId, playerId } = useLocalSearchParams();
+  const { id: gameId, userId } = useLocalSearchParams();
   const game: GameType = useQuery(api.games.getGame, {
     id: gameId as Id<'games'>,
   });
@@ -79,7 +79,7 @@ export default function Game() {
 
     const { tooSlow } = await takeTurnMutation({
       gameId: gameId as Id<'games'>,
-      playerId: playerId as Id<'players'>,
+      userId: userId as Id<'users'>,
       card,
       turn: game?.turn,
     });
@@ -96,7 +96,10 @@ export default function Game() {
 
   const renderWaiting = () => (
     <>
-      <Text>Waiting for players...</Text>
+      <Text>
+        Waiting for players... {game?.players.length} /{' '}
+        {game?.noExpectedPlayers}
+      </Text>
       <Pressable style={styles.button} onPress={copyGameId}>
         <Text style={styles.text}>Copy game ID</Text>
       </Pressable>
@@ -109,7 +112,7 @@ export default function Game() {
       <ActiveCard card={game?.activeCard} />
       <PlayerCards
         gameId={gameId as string}
-        playerId={playerId as string}
+        userId={userId as string}
         guess={guess}
       />
     </>
@@ -124,7 +127,7 @@ export default function Game() {
       ) : game?.started && !game?.finished ? (
         renderPlaying()
       ) : game?.started && game?.finished ? (
-        <FinishedGame game={game} playerId={playerId as Id<'players'>} />
+        <FinishedGame game={game} userId={userId as Id<'users'>} />
       ) : null}
     </View>
   );
