@@ -42,16 +42,11 @@ const FinishedGame = ({ game, userId }: FinishedGameProps) => {
   }, [game]);
 
   const findTopScorer = (results: Result[]) => {
-    let score = 0;
-    let winner = null;
+    const winner = results.reduce((max, current) => {
+      return current.score > max.score ? current : max;
+    });
 
-    for (const result of results) {
-      if (result.score > score) {
-        winner = result.email;
-      }
-    }
-
-    return winner;
+    return winner.email;
   };
 
   const results: Result[] = [];
@@ -82,7 +77,7 @@ const FinishedGame = ({ game, userId }: FinishedGameProps) => {
   };
 
   const leaveGame = async () => {
-    await deleteGameMutation({ gameId: game?.nextGameId });
+    deleteGameMutation({ gameId: game?.nextGameId });
 
     router.push({ pathname: '/lobby' });
   };
