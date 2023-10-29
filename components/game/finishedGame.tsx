@@ -20,15 +20,20 @@ type FinishedGameProps = {
 const FinishedGame = ({ game, userId }: FinishedGameProps) => {
   const votePlayAgainMutation = useMutation(api.games.votePlayAgain);
   const playAgainMutation = useMutation(api.games.playAgain);
+  const deleteGameMutation = useMutation(api.games.deleteGame);
 
   useEffect(() => {
     async function playAgain() {
-      const { gameId } = await playAgainMutation({
-        noExpectedPlayers: game.noExpectedPlayers,
+      await playAgainMutation({
+        gameId: game?.nextGameId,
         players: game?.players,
+        noExpectedPlayers: game?.noExpectedPlayers,
       });
 
-      router.push({ pathname: `/game/${gameId}`, params: { userId } });
+      router.push({
+        pathname: `/game/${game?.nextGameId}`,
+        params: { userId },
+      });
     }
 
     if (game?.noExpectedPlayers === game?.noPlayAgainPlayers) {
@@ -70,11 +75,16 @@ const FinishedGame = ({ game, userId }: FinishedGameProps) => {
   });
 
   const playAgain = async () => {
-    console.log('play again!');
     await votePlayAgainMutation({
       gameId: game._id,
       noVotes: game?.noPlayAgainPlayers,
     });
+  };
+
+  const leaveGame = async () => {
+    await deleteGameMutation({ gameId: game?.nextGameId });
+
+    router.push({ pathname: '/lobby' });
   };
 
   if (!results || results.length === 0) return null;
@@ -94,6 +104,10 @@ const FinishedGame = ({ game, userId }: FinishedGameProps) => {
         <Text style={styles.text}>
           Play again {game?.noPlayAgainPlayers} / {game?.noExpectedPlayers}
         </Text>
+      </Pressable>
+
+      <Pressable style={styles.button} onPress={leaveGame}>
+        <Text style={styles.text}>Leave</Text>
       </Pressable>
     </>
   );
