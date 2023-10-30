@@ -237,6 +237,8 @@ export const takeTurn = mutation({
 export const deleteGame = mutation({
   args: { gameId: v.id('games') },
   handler: async (ctx, { gameId }) => {
-    await ctx.db.delete(gameId);
+    const game = await ctx.db.get(gameId);
+
+    if (game) await ctx.db.delete(gameId);
   },
 });
