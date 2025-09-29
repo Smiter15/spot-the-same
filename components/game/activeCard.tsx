@@ -1,37 +1,45 @@
-import { StyleSheet, View, Dimensions } from 'react-native';
-
+import { StyleSheet, View, Dimensions, Text } from 'react-native';
 import Icons from '../../assets/icons';
+
+type ActiveCardProps = {
+    card: number[];
+};
 
 const iconWidth = (Dimensions.get('window').width - 60) / 6;
 
-const ActiveCard = ({ card }: { card: number[] }) => {
-  return (
-    <View style={styles.icons}>
-      {card.map((icon: number) => {
-        const Icon = (Icons as any)[`Icon${icon}`];
+export default function ActiveCard({ card }: ActiveCardProps) {
+    return (
+        <View style={styles.icons}>
+            {card.map((icon) => {
+                const Icon = (Icons as Record<string, React.ComponentType<any>>)[`Icon${icon}`];
 
-        return (
-          <View key={`active-card-${icon}`} style={styles.icon}>
-            <Icon width={iconWidth} height={60} />
-          </View>
-        );
-      })}
-    </View>
-  );
-};
+                return (
+                    <View key={`active-card-${icon}`} style={styles.icon}>
+                        {Icon ? <Icon width={iconWidth} height={60} /> : <Text style={styles.missing}>?</Text>}
+                    </View>
+                );
+            })}
+        </View>
+    );
+}
 
 const styles = StyleSheet.create({
-  icons: {
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
-  icon: {
-    marginLeft: '15%',
-    flexBasis: '35%',
-    height: '33.33%',
-    width: iconWidth,
-  },
+    icons: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        alignItems: 'center',
+        gap: 10,
+    },
+    icon: {
+        width: iconWidth,
+        height: 60,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    missing: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: 'red',
+    },
 });
-
-export default ActiveCard;

@@ -3,132 +3,145 @@ import { Text, TextInput, View, StyleSheet, Pressable } from 'react-native';
 import { useSignUp } from '@clerk/clerk-expo';
 import { router } from 'expo-router';
 
-export default function SignUp({ toggleSignIn }: any) {
-  const { isLoaded, signUp, setActive } = useSignUp();
+type SignUpProps = {
+    toggleSignIn: () => void;
+};
 
-  const [emailAddress, setEmailAddress] = useState('');
-  const [password, setPassword] = useState('');
-  const [pendingVerification, setPendingVerification] = useState(false);
-  const [code, setCode] = useState('');
+export default function SignUp({ toggleSignIn }: SignUpProps) {
+    const { isLoaded, signUp, setActive } = useSignUp();
 
-  // start the sign up process.
-  const onSignUpPress = async () => {
-    if (!isLoaded) {
-      return;
-    }
+    const [emailAddress, setEmailAddress] = useState('');
+    const [password, setPassword] = useState('');
+    const [pendingVerification, setPendingVerification] = useState(false);
+    const [code, setCode] = useState('');
+    const [error, setError] = useState<string | null>(null);
 
-    try {
-      await signUp.create({
-        emailAddress,
-        password,
-      });
+    // Start the sign up process
+    const onSignUpPress = async () => {
+        if (!isLoaded) return;
 
-      // send the email.
-      await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
+        try {
+            await signUp.create({ emailAddress, password });
 
-      // change the UI to our pending section.
-      setPendingVerification(true);
-    } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
-    }
-  };
+            await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
 
-  // This verifies the user using email code that is delivered.
-  const onPressVerify = async () => {
-    if (!isLoaded) {
-      return;
-    }
+            setPendingVerification(true);
+            setError(null);
+        } catch (err: any) {
+            console.error('Sign up error:', err);
+            setError('Sign up failed. Please check your details and try again.');
+        }
+    };
 
-    try {
-      const completeSignUp = await signUp.attemptEmailAddressVerification({
-        code,
-      });
+    // Verify the code sent by email
+    const onPressVerify = async () => {
+        if (!isLoaded) return;
 
-      await setActive({ session: completeSignUp.createdSessionId });
-      router.replace({ pathname: '/lobby' });
-    } catch (err: any) {
-      console.error(JSON.stringify(err, null, 2));
-    }
-  };
+        try {
+            const completeSignUp = await signUp.attemptEmailAddressVerification({
+                code,
+            });
 
-  return (
-    <View>
-      {!pendingVerification && (
-        <>
-          <TextInput
-            autoCapitalize="none"
-            style={styles.input}
-            value={emailAddress}
-            placeholder="Email..."
-            onChangeText={(email) => setEmailAddress(email)}
-          />
+            await setActive({ session: completeSignUp.createdSessionId });
+            router.replace('/lobby');
+        } catch (err: any) {
+            console.error('Verification error:', err);
+            setError('Invalid code. Please try again.');
+        }
+    };
 
-          <TextInput
-            value={password}
-            style={styles.input}
-            placeholder="Password..."
-            secureTextEntry={true}
-            onChangeText={(password) => setPassword(password)}
-          />
+    return (
+        <View style={styles.container}>
+            {!pendingVerification ? (
+                <>
+                    <TextInput
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        keyboardType="email-address"
+                        textContentType="emailAddress"
+                        style={styles.input}
+                        value={emailAddress}
+                        placeholder="Email..."
+                        onChangeText={setEmailAddress}
+                    />
 
-          <Pressable style={styles.button} onPress={onSignUpPress}>
-            <Text style={styles.text}>Sign up</Text>
-          </Pressable>
+                    <TextInput
+                        value={password}
+                        style={styles.input}
+                        placeholder="Password..."
+                        secureTextEntry
+                        textContentType="newPassword"
+                        onChangeText={setPassword}
+                    />
 
-          <Pressable onPress={() => toggleSignIn()}>
-            <Text style={styles.link}>
-              Already have an account? Sign in here
-            </Text>
-          </Pressable>
-        </>
-      )}
-      {pendingVerification && (
-        <>
-          <TextInput
-            style={styles.input}
-            value={code}
-            placeholder="Code..."
-            onChangeText={(code) => setCode(code)}
-          />
+                    {error && <Text style={styles.error}>{error}</Text>}
 
-          <Pressable style={styles.button} onPress={onPressVerify}>
-            <Text style={styles.text}>Verify Email</Text>
-          </Pressable>
-        </>
-      )}
-    </View>
-  );
+                    <Pressable style={styles.button} onPress={onSignUpPress}>
+                        <Text style={styles.text}>Sign up</Text>
+                    </Pressable>
+
+                    <Pressable onPress={toggleSignIn}>
+                        <Text style={styles.link}>Already have an account? Sign in here</Text>
+                    </Pressable>
+                </>
+            ) : (
+                <>
+                    <TextInput
+                        style={styles.input}
+                        value={code}
+                        placeholder="Verification code..."
+                        keyboardType="number-pad"
+                        onChangeText={setCode}
+                    />
+
+                    {error && <Text style={styles.error}>{error}</Text>}
+
+                    <Pressable style={styles.button} onPress={onPressVerify}>
+                        <Text style={styles.text}>Verify Email</Text>
+                    </Pressable>
+                </>
+            )}
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
-  button: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 4,
-    elevation: 3,
-    backgroundColor: 'black',
-  },
-  input: {
-    width: 250,
-    height: 44,
-    padding: 10,
-    marginTop: 20,
-    marginBottom: 10,
-    backgroundColor: '#e8e8e8',
-  },
-  text: {
-    fontSize: 16,
-    lineHeight: 21,
-    fontWeight: 'bold',
-    letterSpacing: 0.25,
-    color: 'white',
-  },
-  link: {
-    marginTop: 10,
-    color: 'blue',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+    container: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 10,
+    },
+    button: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 32,
+        borderRadius: 4,
+        elevation: 3,
+        backgroundColor: 'black',
+        marginTop: 10,
+    },
+    input: {
+        width: 250,
+        height: 44,
+        padding: 10,
+        backgroundColor: '#e8e8e8',
+        borderRadius: 4,
+    },
+    text: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        letterSpacing: 0.25,
+        color: 'white',
+    },
+    link: {
+        marginTop: 10,
+        color: 'blue',
+        textAlign: 'center',
+    },
+    error: {
+        marginTop: 8,
+        color: 'red',
+        fontSize: 14,
+    },
 });

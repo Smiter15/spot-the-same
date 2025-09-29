@@ -7,54 +7,46 @@ import { router } from 'expo-router';
 import SignUp from '../components/auth/signup';
 import SignIn from '../components/auth/signin';
 
-export default function App() {
-  const { isLoaded, isSignedIn } = useUser();
+export default function Index() {
+    const { isLoaded, isSignedIn } = useUser();
+    const [showSignIn, setShowSignIn] = useState(true);
 
-  const [showSignIn, setShowSignIn] = useState(true);
+    useEffect(() => {
+        if (isLoaded && isSignedIn) {
+            router.replace('/lobby'); // ✅ simpler in Router v6
+        }
+    }, [isLoaded, isSignedIn]);
 
-  useEffect(() => {
-    if (isLoaded && isSignedIn) {
-      router.replace({ pathname: '/lobby' });
+    const toggleSignIn = () => setShowSignIn((prev) => !prev);
+
+    if (!isLoaded) {
+        return (
+            <View style={styles.container}>
+                <Text>Loading…</Text>
+            </View>
+        );
     }
-  }, [isLoaded, isSignedIn]);
 
-  const toggleSignIn = () => {
-    setShowSignIn((prevShowSignIn) => !prevShowSignIn);
-  };
-
-  if (!isLoaded) {
     return (
-      <View style={styles.container}>
-        <Text>Loading...</Text>
-      </View>
+        <KeyboardAvoidingView style={styles.container} behavior="padding">
+            <StatusBar style="auto" />
+            <Text style={styles.title}>Welcome to Spot the Same!</Text>
+            {showSignIn ? <SignIn toggleSignIn={toggleSignIn} /> : <SignUp toggleSignIn={toggleSignIn} />}
+        </KeyboardAvoidingView>
     );
-  }
-
-  return (
-    <KeyboardAvoidingView style={styles.container}>
-      <StatusBar style="auto" />
-
-      <Text style={styles.title}>Welcome to Spot the Same!</Text>
-
-      {showSignIn ? (
-        <SignIn toggleSignIn={toggleSignIn} />
-      ) : (
-        <SignUp toggleSignIn={toggleSignIn} />
-      )}
-    </KeyboardAvoidingView>
-  );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
+    container: {
+        flex: 1,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 20, // ✅ extra padding for safe layout
+    },
+    title: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 20,
+    },
 });

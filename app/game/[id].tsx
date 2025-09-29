@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, Alert } from 'react-native';
 import { useQuery, useMutation } from 'convex/react';
-import { Audio } from 'expo-av';
 import * as Clipboard from 'expo-clipboard';
+import { useAudioPlayer } from 'expo-audio';
 
 import { Id } from '../../convex/_generated/dataModel';
 import { api } from '../../convex/_generated/api';
@@ -16,145 +16,149 @@ import FinishedGame from '../../components/game/finishedGame';
 import { Card } from '../../types';
 import { Game as GameType } from '../../convex/games';
 
-const audioPaths = {
-  paths: [
-    require('../../assets/audio/quack.mp3'),
-    require('../../assets/audio/fart.mp3'),
-    require('../../assets/audio/ting.mp3'),
-  ],
-};
+// Audio sources
+const audioPaths = [
+    require('../../assets/audio/quack.mp3'), // wrong
+    require('../../assets/audio/fart.mp3'), // too slow
+    require('../../assets/audio/ting.mp3'), // correct
+];
 
 export default function Game() {
-  const [score, setScore] = useState(0); // keep client side?
-  const [sound, setSound] = useState<any>();
+    const [score, setScore] = useState(0);
 
-  const { id: gameId, userId } = useLocalSearchParams();
-  const game: GameType = useQuery(api.games.getGame, {
-    id: gameId as Id<'games'>,
-  });
+    // Normalize params from router
+    const { id, userId } = useLocalSearchParams();
+    const gameId = Array.isArray(id) ? id[0] : id;
+    const currentUserId = Array.isArray(userId) ? userId[0] : userId;
 
-  const startGameMutation = useMutation(api.games.startGame);
-  const takeTurnMutation = useMutation(api.games.takeTurn);
-
-  useEffect(() => {
-    async function startGame() {
-      await startGameMutation({ gameId: game?._id });
-    }
-
-    if (
-      game?.started === false &&
-      game?.players.length === game?.noExpectedPlayers
-    ) {
-      startGame();
-    }
-  }, [game]);
-
-  useEffect(() => {
-    return () => {
-      if (sound) {
-        sound.unloadAsync();
-      }
-    };
-  }, [sound]);
-
-  const playSound = async (i: number) => {
-    const { sound } = await Audio.Sound.createAsync(audioPaths['paths'][i]);
-    setSound(sound);
-
-    await sound.playAsync();
-  };
-
-  const copyGameId = async () => {
-    console.log('copied!');
-    await Clipboard.setStringAsync(gameId as string);
-  };
-
-  const guess = async (card: Card, icon: number) => {
-    const correct = game?.activeCard.includes(icon);
-
-    if (!correct) {
-      await playSound(0);
-      return 'red';
-    }
-
-    const { tooSlow } = await takeTurnMutation({
-      gameId: gameId as Id<'games'>,
-      userId: userId as Id<'users'>,
-      card,
-      turn: game?.turn,
+    const game: GameType | undefined = useQuery(api.games.getGame, {
+        id: gameId as Id<'games'>,
     });
 
-    if (tooSlow) {
-      await playSound(1);
-      return 'yellow';
-    } else {
-      await playSound(2);
-      setScore(score + 1);
-      return 'green';
-    }
-  };
+    const startGameMutation = useMutation(api.games.startGame);
+    const takeTurnMutation = useMutation(api.games.takeTurn);
 
-  const renderWaiting = () => (
-    <>
-      <Text>
-        Waiting for players... {game?.players.length} /{' '}
-        {game?.noExpectedPlayers}
-      </Text>
-      <Pressable style={styles.button} onPress={copyGameId}>
-        <Text style={styles.text}>Copy game ID</Text>
-      </Pressable>
-    </>
-  );
+    // Create audio players once
+    const players = useMemo(() => audioPaths.map((src) => useAudioPlayer(src)), []);
 
-  const renderPlaying = () => (
-    <>
-      <Text>Score: {score}</Text>
-      <ActiveCard card={game?.activeCard} />
-      <PlayerCards
-        gameId={gameId as string}
-        userId={userId as string}
-        guess={guess}
-      />
-    </>
-  );
+    useEffect(() => {
+        async function maybeStartGame() {
+            try {
+                if (game?._id && game.started === false && game.players.length === game.noExpectedPlayers) {
+                    await startGameMutation({ gameId: game._id });
+                }
+            } catch (err) {
+                console.error('Failed to start game:', err);
+            }
+        }
+        maybeStartGame();
+    }, [game]);
 
-  return (
-    <View style={styles.container}>
-      <StatusBar style="auto" />
+    const playSound = (i: number) => {
+        const player = players[i];
+        if (player) {
+            player.seekTo(0);
+            player.play();
+        }
+    };
 
-      {game?.players.length !== game?.noExpectedPlayers ? (
-        renderWaiting()
-      ) : game?.started && !game?.finished ? (
-        renderPlaying()
-      ) : game?.started && game?.finished ? (
-        <FinishedGame game={game} userId={userId as Id<'users'>} />
-      ) : null}
-    </View>
-  );
+    const copyGameId = async () => {
+        if (gameId) {
+            await Clipboard.setStringAsync(gameId);
+            Alert.alert('Copied!', 'Game ID has been copied to your clipboard.');
+        }
+    };
+
+    const guess = async (card: Card, icon: number): Promise<'red' | 'yellow' | 'green'> => {
+        const correct = game?.activeCard.includes(icon);
+
+        if (!correct) {
+            playSound(0);
+            return 'red';
+        }
+
+        if (game?.turn == null) {
+            console.error('Game turn is missing');
+            return 'red';
+        }
+
+        try {
+            const { tooSlow } = await takeTurnMutation({
+                gameId: gameId as Id<'games'>,
+                userId: currentUserId as Id<'users'>,
+                card,
+                turn: game?.turn,
+            });
+
+            if (tooSlow) {
+                playSound(1);
+                return 'yellow';
+            } else {
+                playSound(2);
+                setScore((prev) => prev + 1);
+                return 'green';
+            }
+        } catch (err) {
+            console.error('Guess mutation failed:', err);
+            return 'red';
+        }
+    };
+
+    const renderWaiting = () => (
+        <View style={{ alignItems: 'center', gap: 12 }}>
+            <Text>
+                Waiting for players... {game?.players.length} / {game?.noExpectedPlayers}
+            </Text>
+            <Pressable style={styles.button} onPress={copyGameId}>
+                <Text style={styles.text}>Copy Game ID</Text>
+            </Pressable>
+        </View>
+    );
+
+    const renderPlaying = () => (
+        <View style={{ alignItems: 'center', gap: 12 }}>
+            <Text>Score: {score}</Text>
+            {game?.activeCard && <ActiveCard card={game.activeCard} />}
+            <PlayerCards gameId={gameId ?? ''} userId={currentUserId ?? ''} guess={guess} />
+        </View>
+    );
+
+    return (
+        <View style={styles.container}>
+            <StatusBar style="auto" />
+            {game?.players.length !== game?.noExpectedPlayers ? (
+                renderWaiting()
+            ) : game?.started && !game?.finished ? (
+                renderPlaying()
+            ) : game?.started && game?.finished ? (
+                <FinishedGame game={game} userId={currentUserId as Id<'users'>} />
+            ) : null}
+        </View>
+    );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    paddingTop: 100,
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  button: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 4,
-    elevation: 3,
-    backgroundColor: 'black',
-  },
-  text: {
-    fontSize: 16,
-    lineHeight: 21,
-    fontWeight: 'bold',
-    letterSpacing: 0.25,
-    color: 'white',
-  },
+    container: {
+        paddingTop: 100,
+        flex: 1,
+        backgroundColor: '#fff',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        paddingHorizontal: 20,
+    },
+    button: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 32,
+        borderRadius: 6,
+        elevation: 3,
+        backgroundColor: 'black',
+    },
+    text: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        letterSpacing: 0.25,
+        color: 'white',
+    },
 });
