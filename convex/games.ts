@@ -39,18 +39,6 @@ export const createGame = mutation({
 
         const { activeCard, dealtCards } = deal(noExpectedPlayers);
 
-        const nextGameId = await ctx.db.insert('games', {
-            players: [],
-            noExpectedPlayers,
-            activeCard: [],
-            started: false,
-            turn: 0,
-            finished: false,
-            winner: null,
-            noPlayAgainPlayers: 0,
-            nextGameId: null,
-        });
-
         const gameId = await ctx.db.insert('games', {
             players: [userId],
             noExpectedPlayers,
@@ -60,14 +48,14 @@ export const createGame = mutation({
             finished: false,
             winner: null,
             noPlayAgainPlayers: 0,
-            nextGameId,
+            nextGameId: null,
         });
 
-        for (const deal of dealtCards) {
+        for (const cards of dealtCards) {
             await ctx.db.insert('game_details', {
                 gameId,
                 userId: null,
-                cards: deal,
+                cards,
                 score: 0,
             });
         }
@@ -84,13 +72,13 @@ export const playAgain = mutation({
     },
     handler: async (ctx, { gameId, players, noExpectedPlayers }) => {
         const { activeCard, dealtCards } = deal(noExpectedPlayers);
-        const game = await ctx.db.get(gameId);
 
+        const game = await ctx.db.get(gameId);
         if (!game) throw new Error('Game not found');
 
-        let newNextGameId = game.nextGameId;
-        if (!newNextGameId) {
-            newNextGameId = await ctx.db.insert('games', {
+        let nextGameId = game.nextGameId;
+        if (!nextGameId) {
+            nextGameId = await ctx.db.insert('games', {
                 players: [],
                 noExpectedPlayers,
                 activeCard: [],
@@ -103,7 +91,11 @@ export const playAgain = mutation({
             });
         }
 
-        await ctx.db.patch(gameId, {
+        // Update current game to point to nextGameId
+        await ctx.db.patch(gameId, { nextGameId });
+
+        // Initialise the next game state
+        await ctx.db.patch(nextGameId, {
             players,
             noExpectedPlayers,
             activeCard,
@@ -112,24 +104,19 @@ export const playAgain = mutation({
             finished: false,
             winner: null,
             noPlayAgainPlayers: 0,
-            nextGameId: newNextGameId,
         });
 
+        // Assign cards to players in next game
         for (const [index, userId] of players.entries()) {
-            const gameDetails = await ctx.db
-                .query('game_details')
-                .filter((q) => q.and(q.eq(q.field('gameId'), gameId), q.eq(q.field('userId'), userId)))
-                .first();
-
-            if (!gameDetails) {
-                await ctx.db.insert('game_details', {
-                    gameId,
-                    userId,
-                    cards: dealtCards[index],
-                    score: 0,
-                });
-            }
+            await ctx.db.insert('game_details', {
+                gameId: nextGameId,
+                userId,
+                cards: dealtCards[index],
+                score: 0,
+            });
         }
+
+        return { nextGameId };
     },
 });
 
@@ -167,7 +154,6 @@ export const startGame = mutation({
         const game = await ctx.db.get(gameId);
         if (!game) throw new Error('Game not found');
 
-        // assign players to game_details where userId is null
         for (const userId of game.players) {
             const gameDetails = await ctx.db
                 .query('game_details')
@@ -194,7 +180,10 @@ export const takeTurn = mutation({
         const game = await ctx.db.get(gameId);
         if (!game) throw new Error('Game not found');
 
-        if (turn !== game.turn) return { tooSlow: true };
+        // If someone else already advanced the turn, this guess was too slow
+        if (turn !== game.turn) {
+            return { tooSlow: true };
+        }
 
         const details = await ctx.db
             .query('game_details')
@@ -212,7 +201,7 @@ export const takeTurn = mutation({
         });
 
         if (updatedCards.length === 0) {
-            // game finished
+            // finished game
             await ctx.db.patch(gameId, {
                 activeCard: card,
                 turn: game.turn + 1,
@@ -220,7 +209,7 @@ export const takeTurn = mutation({
                 winner: userId,
             });
         } else {
-            // still playing
+            // advance to next round
             await ctx.db.patch(gameId, {
                 activeCard: shuffle(card),
                 turn: game.turn + 1,

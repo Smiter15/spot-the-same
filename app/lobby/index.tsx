@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useAuth, useUser } from '@clerk/clerk-expo';
-import { StyleSheet, Text, TextInput, KeyboardAvoidingView, Pressable, Alert } from 'react-native';
+import { StyleSheet, Text, TextInput, KeyboardAvoidingView, Pressable, Alert, ActivityIndicator } from 'react-native';
 import { useMutation } from 'convex/react';
 
 import { Id } from '../../convex/_generated/dataModel';
@@ -13,15 +13,22 @@ export default function Lobby() {
     const { signOut } = useAuth();
 
     const [joinGameId, setJoinGameId] = useState('');
+    const [loading, setLoading] = useState<'create' | 'join' | null>(null);
 
     const createGameMutation = useMutation(api.games.createGame);
     const joinGameMutation = useMutation(api.games.joinGame);
 
     const createGame = async () => {
+        if (!user?.primaryEmailAddress?.emailAddress) {
+            Alert.alert('Error', 'No email found for user.');
+            return;
+        }
+
+        setLoading('create');
         try {
             const { gameId, userId } = await createGameMutation({
                 noExpectedPlayers: 2,
-                email: user?.primaryEmailAddress?.emailAddress ?? '',
+                email: user.primaryEmailAddress.emailAddress,
             });
 
             router.push({
@@ -30,6 +37,8 @@ export default function Lobby() {
             });
         } catch (err) {
             Alert.alert('Error', 'Could not create game. Please try again.');
+        } finally {
+            setLoading(null);
         }
     };
 
@@ -39,9 +48,15 @@ export default function Lobby() {
             return;
         }
 
+        if (!user?.primaryEmailAddress?.emailAddress) {
+            Alert.alert('Error', 'No email found for user.');
+            return;
+        }
+
+        setLoading('join');
         try {
             const { userId } = await joinGameMutation({
-                email: user?.primaryEmailAddress?.emailAddress ?? '',
+                email: user.primaryEmailAddress.emailAddress,
                 gameId: joinGameId as Id<'games'>,
             });
 
@@ -51,6 +66,8 @@ export default function Lobby() {
             });
         } catch (err) {
             Alert.alert('Error', 'Could not join game. Please check the ID and try again.');
+        } finally {
+            setLoading(null);
         }
     };
 
@@ -75,12 +92,24 @@ export default function Lobby() {
                 style={styles.input}
             />
 
-            <Pressable style={styles.button} onPress={createGame}>
-                <Text style={styles.text}>Create Game</Text>
+            <Pressable
+                style={[styles.button, loading === 'create' && styles.disabled]}
+                onPress={createGame}
+                disabled={loading === 'create'}
+            >
+                {loading === 'create' ? (
+                    <ActivityIndicator color="white" />
+                ) : (
+                    <Text style={styles.text}>Create Game</Text>
+                )}
             </Pressable>
 
-            <Pressable style={styles.button} onPress={joinGame}>
-                <Text style={styles.text}>Join Game</Text>
+            <Pressable
+                style={[styles.button, (loading === 'join' || !joinGameId) && styles.disabled]}
+                onPress={joinGame}
+                disabled={loading === 'join' || !joinGameId}
+            >
+                {loading === 'join' ? <ActivityIndicator color="white" /> : <Text style={styles.text}>Join Game</Text>}
             </Pressable>
 
             <Pressable style={styles.button} onPress={signout}>
@@ -116,6 +145,9 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         elevation: 3,
         backgroundColor: 'black',
+    },
+    disabled: {
+        backgroundColor: '#666',
     },
     text: {
         fontSize: 16,

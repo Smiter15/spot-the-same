@@ -1,5 +1,7 @@
+import { Card } from '../../types';
+
 // deck of 31 cards, 31 symbols, 6 cards per symbol
-export const deck: number[][] = [
+export const deck: Card[] = [
     [25, 26, 27, 28, 29, 30],
     [0, 1, 2, 3, 4, 25],
     [5, 6, 7, 8, 9, 25],
@@ -52,8 +54,8 @@ export const shuffle = <T>(arr: T[]): T[] => {
 export const deal = (
     noExpectedPlayers: number,
 ): {
-    activeCard: number[] | undefined;
-    dealtCards: number[][];
+    activeCard: Card | undefined;
+    dealtCards: Card[][];
 } => {
     const shuffledDeck = shuffle(deck);
 
@@ -62,8 +64,9 @@ export const deal = (
 
     const noOfCardsPerPlayer = Math.floor(shuffledDeck.length / noExpectedPlayers);
 
-    const dealtCards: number[][] = Array.from({ length: noExpectedPlayers }, () =>
-        shuffledDeck.splice(0, noOfCardsPerPlayer).flat(),
+    // Each player gets an array of cards, each card is number[]
+    const dealtCards: Card[][] = Array.from({ length: noExpectedPlayers }, () =>
+        shuffledDeck.splice(0, noOfCardsPerPlayer),
     );
 
     return { activeCard, dealtCards };

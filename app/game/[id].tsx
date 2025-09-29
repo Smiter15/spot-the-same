@@ -38,11 +38,8 @@ export default function Game() {
     const startGameMutation = useMutation(api.games.startGame);
     const takeTurnMutation = useMutation(api.games.takeTurn);
 
-    // Create audio players once
-    const players = useMemo(() => audioPaths.map((src) => useAudioPlayer(src)), []);
-
     useEffect(() => {
-        async function maybeStartGame() {
+        const maybeStartGame = async () => {
             try {
                 if (game?._id && game.started === false && game.players.length === game.noExpectedPlayers) {
                     await startGameMutation({ gameId: game._id });
@@ -50,12 +47,17 @@ export default function Game() {
             } catch (err) {
                 console.error('Failed to start game:', err);
             }
-        }
+        };
         maybeStartGame();
     }, [game]);
 
+    const soundWrong = useAudioPlayer(require('../../assets/audio/quack.mp3'));
+    const soundTooSlow = useAudioPlayer(require('../../assets/audio/fart.mp3'));
+    const soundCorrect = useAudioPlayer(require('../../assets/audio/ting.mp3'));
+
     const playSound = (i: number) => {
-        const player = players[i];
+        const sounds = [soundWrong, soundTooSlow, soundCorrect];
+        const player = sounds[i];
         if (player) {
             player.seekTo(0);
             player.play();
@@ -72,8 +74,9 @@ export default function Game() {
     const guess = async (card: Card, icon: number): Promise<'red' | 'yellow' | 'green'> => {
         const correct = game?.activeCard.includes(icon);
 
+        // Wrong guess: handle locally
         if (!correct) {
-            playSound(0);
+            playSound(0); // ❌ wrong
             return 'red';
         }
 
@@ -87,14 +90,14 @@ export default function Game() {
                 gameId: gameId as Id<'games'>,
                 userId: currentUserId as Id<'users'>,
                 card,
-                turn: game?.turn,
+                turn: game.turn,
             });
 
             if (tooSlow) {
-                playSound(1);
+                playSound(1); // ⏱️ too slow
                 return 'yellow';
             } else {
-                playSound(2);
+                playSound(2); // ✅ correct
                 setScore((prev) => prev + 1);
                 return 'green';
             }
@@ -126,12 +129,14 @@ export default function Game() {
     return (
         <View style={styles.container}>
             <StatusBar style="auto" />
-            {game?.players.length !== game?.noExpectedPlayers ? (
+            {!game ? (
+                <Text>Loading...</Text>
+            ) : game.players.length !== game.noExpectedPlayers ? (
                 renderWaiting()
-            ) : game?.started && !game?.finished ? (
+            ) : game.started && !game.finished ? (
                 renderPlaying()
-            ) : game?.started && game?.finished ? (
-                <FinishedGame game={game} userId={currentUserId as Id<'users'>} />
+            ) : game.started && game.finished ? (
+                <FinishedGame game={game} userId={userId as Id<'users'>} />
             ) : null}
         </View>
     );

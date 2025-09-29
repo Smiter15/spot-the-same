@@ -13,7 +13,7 @@ export default function Index() {
 
     useEffect(() => {
         if (isLoaded && isSignedIn) {
-            router.replace('/lobby'); // ✅ simpler in Router v6
+            router.replace('/lobby');
         }
     }, [isLoaded, isSignedIn]);
 
@@ -42,7 +42,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fff',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingHorizontal: 20, // ✅ extra padding for safe layout
+        paddingHorizontal: 20,
     },
     title: {
         fontSize: 20,

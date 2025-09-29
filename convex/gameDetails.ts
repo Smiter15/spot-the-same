@@ -6,7 +6,7 @@ const gameDetailsSchema = v.object({
     _id: v.id('game_details'),
     gameId: v.id('games'),
     userId: v.id('users'),
-    cards: v.array(v.number()),
+    cards: v.array(v.array(v.number())),
     score: v.number(),
 });
 
