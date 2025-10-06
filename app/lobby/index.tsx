@@ -19,17 +19,9 @@ export default function Lobby() {
     const joinGameMutation = useMutation(api.games.joinGame);
 
     const createGame = async () => {
-        if (!user?.primaryEmailAddress?.emailAddress) {
-            Alert.alert('Error', 'No email found for user.');
-            return;
-        }
-
-        setLoading('create');
         try {
-            const { gameId, userId } = await createGameMutation({
-                noExpectedPlayers: 2,
-                email: user.primaryEmailAddress.emailAddress,
-            });
+            setLoading('create');
+            const { gameId, userId } = await createGameMutation({ noExpectedPlayers: 2 });
 
             router.push({
                 pathname: `/game/${gameId}`,
@@ -48,17 +40,9 @@ export default function Lobby() {
             return;
         }
 
-        if (!user?.primaryEmailAddress?.emailAddress) {
-            Alert.alert('Error', 'No email found for user.');
-            return;
-        }
-
-        setLoading('join');
         try {
-            const { userId } = await joinGameMutation({
-                email: user.primaryEmailAddress.emailAddress,
-                gameId: joinGameId as Id<'games'>,
-            });
+            setLoading('join');
+            const { userId } = await joinGameMutation({ gameId: joinGameId as Id<'games'> });
 
             router.push({
                 pathname: `/game/${joinGameId}`,
@@ -90,6 +74,7 @@ export default function Lobby() {
                 placeholder="Game ID"
                 placeholderTextColor="#888"
                 style={styles.input}
+                editable={!loading}
             />
 
             <Pressable

@@ -1,6 +1,7 @@
 import { Slot } from 'expo-router';
-import { ConvexProvider, ConvexReactClient } from 'convex/react';
-import { ClerkProvider } from '@clerk/clerk-expo';
+import { ClerkProvider, useAuth } from '@clerk/clerk-expo';
+import { ConvexProviderWithClerk } from 'convex/react-clerk';
+import { ConvexReactClient } from 'convex/react';
 import * as SecureStore from 'expo-secure-store';
 import 'react-native-get-random-values';
 
@@ -22,10 +23,10 @@ const tokenCache = {
 
 export default function RootLayout() {
     return (
-        <ConvexProvider client={convex}>
-            <ClerkProvider publishableKey={clerkKey} tokenCache={tokenCache}>
+        <ClerkProvider publishableKey={clerkKey} tokenCache={tokenCache}>
+            <ConvexProviderWithClerk client={convex} useAuth={useAuth}>
                 <Slot />
-            </ClerkProvider>
-        </ConvexProvider>
+            </ConvexProviderWithClerk>
+        </ClerkProvider>
     );
 }

@@ -1,8 +1,9 @@
 import { query, mutation } from './_generated/server';
 import { Infer, v } from 'convex/values';
-
 import { deal, shuffle } from '../src/utils/game';
+import { getCurrentUserId } from './utils';
 
+// ---------------- Schema ----------------
 const gamesSchema = v.object({
     _id: v.id('games'),
     noExpectedPlayers: v.number(),
@@ -27,15 +28,14 @@ export const getGame = query({
 });
 
 // ---------------- Mutations ----------------
-export const createGame = mutation({
-    args: { noExpectedPlayers: v.number(), email: v.string() },
-    handler: async (ctx, { noExpectedPlayers, email }) => {
-        const user = await ctx.db
-            .query('users')
-            .filter((q) => q.eq(q.field('email'), email))
-            .first();
 
-        const userId = user ? user._id : await ctx.db.insert('users', { email });
+/**
+ * Create a new game for the current logged-in user.
+ */
+export const createGame = mutation({
+    args: { noExpectedPlayers: v.number() },
+    handler: async (ctx, { noExpectedPlayers }) => {
+        const userId = await getCurrentUserId(ctx);
 
         const { activeCard, dealtCards } = deal(noExpectedPlayers);
 
@@ -64,6 +64,30 @@ export const createGame = mutation({
     },
 });
 
+/**
+ * Join an existing game. Requires user to already exist.
+ */
+export const joinGame = mutation({
+    args: { gameId: v.id('games') },
+    handler: async (ctx, { gameId }) => {
+        const userId = await getCurrentUserId(ctx);
+
+        const game = await ctx.db.get(gameId);
+        if (!game) throw new Error('Game not found');
+
+        if (!game.players.includes(userId)) {
+            await ctx.db.patch(gameId, {
+                players: [...game.players, userId],
+            });
+        }
+
+        return { userId };
+    },
+});
+
+/**
+ * Create a follow-up game when players vote to play again.
+ */
 export const playAgain = mutation({
     args: {
         gameId: v.id('games'),
@@ -91,10 +115,10 @@ export const playAgain = mutation({
             });
         }
 
-        // Update current game to point to nextGameId
+        // Link the games
         await ctx.db.patch(gameId, { nextGameId });
 
-        // Initialise the next game state
+        // Initialise the new game
         await ctx.db.patch(nextGameId, {
             players,
             noExpectedPlayers,
@@ -106,7 +130,7 @@ export const playAgain = mutation({
             noPlayAgainPlayers: 0,
         });
 
-        // Assign cards to players in next game
+        // Assign cards for each player
         for (const [index, userId] of players.entries()) {
             await ctx.db.insert('game_details', {
                 gameId: nextGameId,
@@ -120,6 +144,9 @@ export const playAgain = mutation({
     },
 });
 
+/**
+ * Increment vote count for replaying a game.
+ */
 export const votePlayAgain = mutation({
     args: { gameId: v.id('games'), noVotes: v.number() },
     handler: async (ctx, { gameId, noVotes }) => {
@@ -127,33 +154,16 @@ export const votePlayAgain = mutation({
     },
 });
 
-export const joinGame = mutation({
-    args: { gameId: v.id('games'), email: v.string() },
-    handler: async (ctx, { gameId, email }) => {
-        const user = await ctx.db
-            .query('users')
-            .filter((q) => q.eq(q.field('email'), email))
-            .first();
-
-        const userId = user ? user._id : await ctx.db.insert('users', { email });
-
-        const game = await ctx.db.get(gameId);
-        if (!game) throw new Error('Game not found');
-
-        if (!game.players.includes(userId)) {
-            await ctx.db.patch(gameId, { players: [...game.players, userId] });
-        }
-
-        return { userId };
-    },
-});
-
+/**
+ * Start a game when all players are ready.
+ */
 export const startGame = mutation({
     args: { gameId: v.id('games') },
     handler: async (ctx, { gameId }) => {
         const game = await ctx.db.get(gameId);
         if (!game) throw new Error('Game not found');
 
+        // Assign player IDs to existing game_details records
         for (const userId of game.players) {
             const gameDetails = await ctx.db
                 .query('game_details')
@@ -169,6 +179,9 @@ export const startGame = mutation({
     },
 });
 
+/**
+ * Process a player turn (atomic, OCC-safe).
+ */
 export const takeTurn = mutation({
     args: {
         gameId: v.id('games'),
@@ -180,7 +193,7 @@ export const takeTurn = mutation({
         const game = await ctx.db.get(gameId);
         if (!game) throw new Error('Game not found');
 
-        // If someone else already advanced the turn, this guess was too slow
+        // Too slow if someone already advanced the turn
         if (turn !== game.turn) {
             return { tooSlow: true };
         }
@@ -201,7 +214,7 @@ export const takeTurn = mutation({
         });
 
         if (updatedCards.length === 0) {
-            // finished game
+            // Game finished
             await ctx.db.patch(gameId, {
                 activeCard: card,
                 turn: game.turn + 1,
@@ -209,7 +222,7 @@ export const takeTurn = mutation({
                 winner: userId,
             });
         } else {
-            // advance to next round
+            // Next round
             await ctx.db.patch(gameId, {
                 activeCard: shuffle(card),
                 turn: game.turn + 1,
@@ -220,6 +233,9 @@ export const takeTurn = mutation({
     },
 });
 
+/**
+ * Delete a game and its associated data.
+ */
 export const deleteGame = mutation({
     args: { gameId: v.id('games') },
     handler: async (ctx, { gameId }) => {
