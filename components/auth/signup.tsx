@@ -11,25 +11,28 @@ export default function SignUp({ toggleSignIn }: SignUpProps) {
     const { isLoaded, signUp, setActive } = useSignUp();
 
     const [emailAddress, setEmailAddress] = useState('');
+    const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
     const [pendingVerification, setPendingVerification] = useState(false);
     const [code, setCode] = useState('');
     const [error, setError] = useState<string | null>(null);
 
-    // Start the sign up process
     const onSignUpPress = async () => {
         if (!isLoaded) return;
 
         try {
-            await signUp.create({ emailAddress, password });
+            await signUp.create({
+                emailAddress,
+                password,
+                username,
+            });
 
             await signUp.prepareEmailAddressVerification({ strategy: 'email_code' });
-
             setPendingVerification(true);
             setError(null);
         } catch (err: any) {
             console.error('Sign up error:', err);
-            setError('Sign up failed. Please check your details and try again.');
+            setError(err?.errors?.[0]?.message || 'Sign up failed. Please check your details and try again.');
         }
     };
 
@@ -43,7 +46,7 @@ export default function SignUp({ toggleSignIn }: SignUpProps) {
             });
 
             await setActive({ session: completeSignUp.createdSessionId });
-            router.replace('/lobby');
+            router.replace('(authed)/lobby');
         } catch (err: any) {
             console.error('Verification error:', err);
             setError('Invalid code. Please try again.');
@@ -63,6 +66,15 @@ export default function SignUp({ toggleSignIn }: SignUpProps) {
                         value={emailAddress}
                         placeholder="Email..."
                         onChangeText={setEmailAddress}
+                    />
+
+                    <TextInput
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        style={styles.input}
+                        value={username}
+                        placeholder="Player name..."
+                        onChangeText={setUsername}
                     />
 
                     <TextInput
@@ -117,7 +129,6 @@ const styles = StyleSheet.create({
         paddingVertical: 12,
         paddingHorizontal: 32,
         borderRadius: 4,
-        elevation: 3,
         backgroundColor: 'black',
         marginTop: 10,
     },
@@ -131,7 +142,6 @@ const styles = StyleSheet.create({
     text: {
         fontSize: 16,
         fontWeight: 'bold',
-        letterSpacing: 0.25,
         color: 'white',
     },
     link: {

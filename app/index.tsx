@@ -13,7 +13,7 @@ export default function Index() {
 
     useEffect(() => {
         if (isLoaded && isSignedIn) {
-            router.replace('/lobby');
+            router.replace('/(authed)/lobby');
         }
     }, [isLoaded, isSignedIn]);
 

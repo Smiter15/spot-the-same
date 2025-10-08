@@ -9,13 +9,15 @@ import { QrCodeSvg } from 'react-native-qr-svg';
 import { useAudioPlayer } from 'expo-audio';
 import { useUser } from '@clerk/clerk-expo';
 
-import { Id } from '../../convex/_generated/dataModel';
-import { api } from '../../convex/_generated/api';
-import ActiveCard from '../../components/game/activeCard';
-import PlayerCards from '../../components/game/playerCards';
-import FinishedGame from '../../components/game/finishedGame';
-import type { Card } from '../../types';
-import type { Game as GameType } from '../../convex/games';
+import { Id } from '../../../convex/_generated/dataModel';
+import { api } from '../../../convex/_generated/api';
+
+import ActiveCard from '../../../components/game/activeCard';
+import PlayerCards from '../../../components/game/playerCards';
+import FinishedGame from '../../../components/game/finishedGame';
+
+import type { Card } from '../../../types';
+import type { Game as GameType } from '../../../convex/games';
 
 export default function Game() {
     const { user, isLoaded, isSignedIn } = useUser();
@@ -23,14 +25,12 @@ export default function Game() {
     const [score, setScore] = useState(0);
     const [shareLink, setShareLink] = useState<string | null>(null);
     const [joining, setJoining] = useState(false);
-    const [convexUserId, setConvexUserId] = useState<Id<'users'> | null>(null); // 🧩 new
+    const [convexUserId, setConvexUserId] = useState<Id<'users'> | null>(null);
 
     const { id } = useLocalSearchParams();
     const gameId = Array.isArray(id) ? id[0] : id;
 
-    const game: GameType | undefined = useQuery(api.games.getGame, {
-        id: gameId as Id<'games'>,
-    });
+    const game = useQuery(api.games.getGame, { id: gameId as Id<'games'> });
 
     const startGameMutation = useMutation(api.games.startGame);
     const joinGameMutation = useMutation(api.games.joinGame);
@@ -51,7 +51,7 @@ export default function Game() {
             try {
                 setJoining(true);
                 const { userId } = await joinGameMutation({ gameId: gameId as Id<'games'> });
-                setConvexUserId(userId); // 🧩 store the Convex ID
+                setConvexUserId(userId);
             } catch (err: any) {
                 if (err?.message?.includes('User not registered')) {
                     Alert.alert('Sign up required', 'You need an account to join this game.');
@@ -82,9 +82,9 @@ export default function Game() {
     }, [game]);
 
     // --- Sounds ---
-    const soundWrong = useAudioPlayer(require('../../assets/audio/quack.mp3'));
-    const soundTooSlow = useAudioPlayer(require('../../assets/audio/fart.mp3'));
-    const soundCorrect = useAudioPlayer(require('../../assets/audio/ting.mp3'));
+    const soundWrong = useAudioPlayer(require('../../../assets/audio/quack.mp3'));
+    const soundTooSlow = useAudioPlayer(require('../../../assets/audio/fart.mp3'));
+    const soundCorrect = useAudioPlayer(require('../../../assets/audio/ting.mp3'));
 
     const playSound = (i: number) => {
         const sounds = [soundWrong, soundTooSlow, soundCorrect];
@@ -129,7 +129,7 @@ export default function Game() {
         try {
             const { tooSlow } = await takeTurnMutation({
                 gameId: gameId as Id<'games'>,
-                userId: convexUserId as Id<'users'>, // 🧩 use Convex userId here
+                userId: convexUserId as Id<'users'>,
                 card,
                 turn: game!.turn,
             });
@@ -175,7 +175,7 @@ export default function Game() {
         <View style={{ alignItems: 'center', gap: 12 }}>
             <Text>Score: {score}</Text>
             {game?.activeCard && <ActiveCard card={game.activeCard} />}
-            <PlayerCards gameId={gameId ?? ''} userId={convexUserId ?? ''} guess={guess} /> {/* 🧩 fixed */}
+            <PlayerCards gameId={gameId ?? ''} userId={convexUserId ?? ''} guess={guess} />
         </View>
     );
 

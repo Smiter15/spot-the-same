@@ -1,19 +1,28 @@
 import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
-import { useAuth, useUser } from '@clerk/clerk-expo';
-import { StyleSheet, Text, TextInput, KeyboardAvoidingView, Pressable, Alert, ActivityIndicator } from 'react-native';
+import { useUser } from '@clerk/clerk-expo';
+import {
+    StyleSheet,
+    Text,
+    TextInput,
+    KeyboardAvoidingView,
+    Pressable,
+    Alert,
+    ActivityIndicator,
+    View,
+} from 'react-native';
 import { useMutation } from 'convex/react';
 
-import { Id } from '../../convex/_generated/dataModel';
-import { api } from '../../convex/_generated/api';
+import { Id } from '../../../convex/_generated/dataModel';
+import { api } from '../../../convex/_generated/api';
 
 export default function Lobby() {
     const { user } = useUser();
-    const { signOut } = useAuth();
 
     const [joinGameId, setJoinGameId] = useState('');
     const [loading, setLoading] = useState<'create' | 'join' | null>(null);
+    const [deckSize, setDeckSize] = useState(6);
 
     const createGameMutation = useMutation(api.games.createGame);
     const joinGameMutation = useMutation(api.games.joinGame);
@@ -21,10 +30,13 @@ export default function Lobby() {
     const createGame = async () => {
         try {
             setLoading('create');
-            const { gameId, userId } = await createGameMutation({ noExpectedPlayers: 2 });
+            const { gameId, userId } = await createGameMutation({
+                noExpectedPlayers: 2,
+                deckSize,
+            });
 
             router.push({
-                pathname: `/game/${gameId}`,
+                pathname: `/(authed)/game/${gameId}`,
                 params: { userId: String(userId) },
             });
         } catch (err) {
@@ -45,7 +57,7 @@ export default function Lobby() {
             const { userId } = await joinGameMutation({ gameId: joinGameId as Id<'games'> });
 
             router.push({
-                pathname: `/game/${joinGameId}`,
+                pathname: `/(authed)/game/${joinGameId}`,
                 params: { userId: String(userId) },
             });
         } catch (err) {
@@ -53,11 +65,6 @@ export default function Lobby() {
         } finally {
             setLoading(null);
         }
-    };
-
-    const signout = async () => {
-        await signOut();
-        router.replace('/');
     };
 
     return (
@@ -77,6 +84,18 @@ export default function Lobby() {
                 editable={!loading}
             />
 
+            <View style={styles.deckOptions}>
+                {[4, 5, 6, 7].map((size) => (
+                    <Pressable
+                        key={size}
+                        style={[styles.deckButton, deckSize === size && styles.deckButtonActive]}
+                        onPress={() => setDeckSize(size)}
+                    >
+                        <Text style={styles.deckText}>{size} Deck</Text>
+                    </Pressable>
+                ))}
+            </View>
+
             <Pressable
                 style={[styles.button, loading === 'create' && styles.disabled]}
                 onPress={createGame}
@@ -95,10 +114,6 @@ export default function Lobby() {
                 disabled={loading === 'join' || !joinGameId}
             >
                 {loading === 'join' ? <ActivityIndicator color="white" /> : <Text style={styles.text}>Join Game</Text>}
-            </Pressable>
-
-            <Pressable style={styles.button} onPress={signout}>
-                <Text style={styles.text}>Sign Out</Text>
             </Pressable>
         </KeyboardAvoidingView>
     );
@@ -140,4 +155,8 @@ const styles = StyleSheet.create({
         letterSpacing: 0.25,
         color: 'white',
     },
+    deckOptions: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+    deckButton: { padding: 10, borderWidth: 1, borderColor: '#999', borderRadius: 6 },
+    deckButtonActive: { backgroundColor: 'black' },
+    deckText: { color: 'black', fontWeight: '600' },
 });

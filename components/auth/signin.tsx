@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Text, TextInput, Pressable, View, StyleSheet, Alert } from 'react-native';
+import { Text, TextInput, Pressable, View, StyleSheet } from 'react-native';
 import { useSignIn } from '@clerk/clerk-expo';
 
 type SignInProps = {

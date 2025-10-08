@@ -1,12 +1,13 @@
 import { query, mutation } from './_generated/server';
 import { Infer, v } from 'convex/values';
-import { deal, shuffle } from '../src/utils/game';
+import { generateDobbleDeck, shuffle } from '../src/utils/game';
 import { getCurrentUserId } from './utils';
 
 // ---------------- Schema ----------------
 const gamesSchema = v.object({
     _id: v.id('games'),
     noExpectedPlayers: v.number(),
+    deckSize: v.number(),
     activeCard: v.array(v.number()),
     players: v.array(v.id('users')),
     started: v.boolean(),
@@ -33,15 +34,23 @@ export const getGame = query({
  * Create a new game for the current logged-in user.
  */
 export const createGame = mutation({
-    args: { noExpectedPlayers: v.number() },
-    handler: async (ctx, { noExpectedPlayers }) => {
+    args: { noExpectedPlayers: v.number(), deckSize: v.number() },
+    handler: async (ctx, { noExpectedPlayers, deckSize }) => {
         const userId = await getCurrentUserId(ctx);
 
-        const { activeCard, dealtCards } = deal(noExpectedPlayers);
+        const n = deckSize - 1;
+        const deck = generateDobbleDeck(n);
+
+        // Deal cards
+        const shuffled = shuffle(deck);
+        const activeCard = shuffled.shift() ?? [];
+        const noOfCardsPerPlayer = Math.floor(shuffled.length / noExpectedPlayers);
+        const dealtCards = Array.from({ length: noExpectedPlayers }, () => shuffled.splice(0, noOfCardsPerPlayer));
 
         const gameId = await ctx.db.insert('games', {
             players: [userId],
             noExpectedPlayers,
+            deckSize,
             activeCard,
             started: false,
             turn: 0,
@@ -51,6 +60,7 @@ export const createGame = mutation({
             nextGameId: null,
         });
 
+        // Insert game_details per player
         for (const cards of dealtCards) {
             await ctx.db.insert('game_details', {
                 gameId,
@@ -95,17 +105,28 @@ export const playAgain = mutation({
         noExpectedPlayers: v.number(),
     },
     handler: async (ctx, { gameId, players, noExpectedPlayers }) => {
-        const { activeCard, dealtCards } = deal(noExpectedPlayers);
-
         const game = await ctx.db.get(gameId);
         if (!game) throw new Error('Game not found');
 
+        // 🧩 Use the same deck size as the original game (default to 6 if unknown)
+        const deckSize = (game as any).deckSize ?? 6;
+        const n = deckSize - 1;
+        const deck = generateDobbleDeck(n);
+
+        // Deal using the same deck size
+        const shuffled = shuffle(deck);
+        const activeCard = shuffled.shift() ?? [];
+        const noOfCardsPerPlayer = Math.floor(shuffled.length / noExpectedPlayers);
+        const dealtCards = Array.from({ length: noExpectedPlayers }, () => shuffled.splice(0, noOfCardsPerPlayer));
+
+        // If nextGame already exists, reuse it
         let nextGameId = game.nextGameId;
         if (!nextGameId) {
             nextGameId = await ctx.db.insert('games', {
                 players: [],
                 noExpectedPlayers,
-                activeCard: [],
+                deckSize,
+                activeCard,
                 started: false,
                 turn: 0,
                 finished: false,
@@ -115,10 +136,8 @@ export const playAgain = mutation({
             });
         }
 
-        // Link the games
+        // Link and initialise
         await ctx.db.patch(gameId, { nextGameId });
-
-        // Initialise the new game
         await ctx.db.patch(nextGameId, {
             players,
             noExpectedPlayers,
@@ -130,7 +149,7 @@ export const playAgain = mutation({
             noPlayAgainPlayers: 0,
         });
 
-        // Assign cards for each player
+        // Assign cards
         for (const [index, userId] of players.entries()) {
             await ctx.db.insert('game_details', {
                 gameId: nextGameId,
