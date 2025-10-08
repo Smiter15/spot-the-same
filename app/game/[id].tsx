@@ -9,15 +9,14 @@ import { QrCodeSvg } from 'react-native-qr-svg';
 import { useAudioPlayer } from 'expo-audio';
 import { useUser } from '@clerk/clerk-expo';
 
-import { Id } from '../../../convex/_generated/dataModel';
-import { api } from '../../../convex/_generated/api';
+import { Id } from '../../convex/_generated/dataModel';
+import { api } from '../../convex/_generated/api';
 
-import ActiveCard from '../../../components/game/activeCard';
-import PlayerCards from '../../../components/game/playerCards';
-import FinishedGame from '../../../components/game/finishedGame';
+import ActiveCard from '../../components/game/activeCard';
+import PlayerCards from '../../components/game/playerCards';
+import FinishedGame from '../../components/game/finishedGame';
 
-import type { Card } from '../../../types';
-import type { Game as GameType } from '../../../convex/games';
+import type { Card } from '../../types';
 
 export default function Game() {
     const { user, isLoaded, isSignedIn } = useUser();
@@ -82,9 +81,9 @@ export default function Game() {
     }, [game]);
 
     // --- Sounds ---
-    const soundWrong = useAudioPlayer(require('../../../assets/audio/quack.mp3'));
-    const soundTooSlow = useAudioPlayer(require('../../../assets/audio/fart.mp3'));
-    const soundCorrect = useAudioPlayer(require('../../../assets/audio/ting.mp3'));
+    const soundWrong = useAudioPlayer(require('../../assets/audio/quack.mp3'));
+    const soundTooSlow = useAudioPlayer(require('../../assets/audio/fart.mp3'));
+    const soundCorrect = useAudioPlayer(require('../../assets/audio/ting.mp3'));
 
     const playSound = (i: number) => {
         const sounds = [soundWrong, soundTooSlow, soundCorrect];

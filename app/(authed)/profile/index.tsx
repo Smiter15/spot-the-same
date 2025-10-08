@@ -1,4 +1,4 @@
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { router } from 'expo-router';
 
@@ -14,6 +14,20 @@ export default function Profile() {
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Profile</Text>
+
+            {user?.hasImage && (
+                <View
+                    style={{
+                        width: 100,
+                        height: 100,
+                        borderRadius: 50,
+                        overflow: 'hidden',
+                        marginBottom: 20,
+                    }}
+                >
+                    <Image source={{ uri: user?.imageUrl }} style={{ width: '100%', height: '100%' }} />
+                </View>
+            )}
 
             <Text>
                 Username: {user?.username && user?.username?.charAt(0).toUpperCase() + user?.username?.slice(1)}

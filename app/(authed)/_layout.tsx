@@ -33,7 +33,8 @@ export default function AuthedLayout() {
                 }}
             />
             {/* Hide game and settings from the tab bar */}
-            <Tabs.Screen name="game/[id]" options={{ href: null }} />
+            <Tabs.Screen name="lobby/create" options={{ href: null }} />
+            <Tabs.Screen name="lobby/join" options={{ href: null }} />
         </Tabs>
     );
 }
