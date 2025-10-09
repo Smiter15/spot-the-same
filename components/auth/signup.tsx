@@ -1,7 +1,9 @@
 import { useState } from 'react';
-import { Text, TextInput, View, StyleSheet, Pressable } from 'react-native';
+import { Text, TextInput, View, StyleSheet, Pressable, ActivityIndicator } from 'react-native';
 import { useSignUp } from '@clerk/clerk-expo';
 import { router } from 'expo-router';
+import { useMutation } from 'convex/react';
+import { api } from '../../convex/_generated/api';
 
 type SignUpProps = {
     toggleSignIn: () => void;
@@ -16,9 +18,13 @@ export default function SignUp({ toggleSignIn }: SignUpProps) {
     const [pendingVerification, setPendingVerification] = useState(false);
     const [code, setCode] = useState('');
     const [error, setError] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    const createUser = useMutation(api.users.createUser);
 
     const onSignUpPress = async () => {
-        if (!isLoaded) return;
+        if (!isLoaded || loading) return;
+        setLoading(true);
 
         try {
             await signUp.create({
@@ -33,23 +39,31 @@ export default function SignUp({ toggleSignIn }: SignUpProps) {
         } catch (err: any) {
             console.error('Sign up error:', err);
             setError(err?.errors?.[0]?.message || 'Sign up failed. Please check your details and try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
     // Verify the code sent by email
     const onPressVerify = async () => {
-        if (!isLoaded) return;
+        if (!isLoaded || loading) return;
+        setLoading(true);
 
         try {
-            const completeSignUp = await signUp.attemptEmailAddressVerification({
-                code,
-            });
-
+            const completeSignUp = await signUp.attemptEmailAddressVerification({ code });
             await setActive({ session: completeSignUp.createdSessionId });
+
+            // 🕐 Wait a short moment to ensure Clerk → Convex token sync
+            await new Promise((r) => setTimeout(r, 500));
+
+            await createUser();
+
             router.replace('(authed)/lobby');
         } catch (err: any) {
             console.error('Verification error:', err);
             setError('Invalid code. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -66,6 +80,7 @@ export default function SignUp({ toggleSignIn }: SignUpProps) {
                         value={emailAddress}
                         placeholder="Email..."
                         onChangeText={setEmailAddress}
+                        editable={!loading}
                     />
 
                     <TextInput
@@ -75,6 +90,7 @@ export default function SignUp({ toggleSignIn }: SignUpProps) {
                         value={username}
                         placeholder="Player name..."
                         onChangeText={setUsername}
+                        editable={!loading}
                     />
 
                     <TextInput
@@ -84,15 +100,20 @@ export default function SignUp({ toggleSignIn }: SignUpProps) {
                         secureTextEntry
                         textContentType="newPassword"
                         onChangeText={setPassword}
+                        editable={!loading}
                     />
 
                     {error && <Text style={styles.error}>{error}</Text>}
 
-                    <Pressable style={styles.button} onPress={onSignUpPress}>
-                        <Text style={styles.text}>Sign up</Text>
+                    <Pressable
+                        style={[styles.button, loading && styles.disabled]}
+                        onPress={onSignUpPress}
+                        disabled={loading}
+                    >
+                        {loading ? <ActivityIndicator color="white" /> : <Text style={styles.text}>Sign up</Text>}
                     </Pressable>
 
-                    <Pressable onPress={toggleSignIn}>
+                    <Pressable onPress={toggleSignIn} disabled={loading}>
                         <Text style={styles.link}>Already have an account? Sign in here</Text>
                     </Pressable>
                 </>
@@ -104,12 +125,17 @@ export default function SignUp({ toggleSignIn }: SignUpProps) {
                         placeholder="Verification code..."
                         keyboardType="number-pad"
                         onChangeText={setCode}
+                        editable={!loading}
                     />
 
                     {error && <Text style={styles.error}>{error}</Text>}
 
-                    <Pressable style={styles.button} onPress={onPressVerify}>
-                        <Text style={styles.text}>Verify Email</Text>
+                    <Pressable
+                        style={[styles.button, loading && styles.disabled]}
+                        onPress={onPressVerify}
+                        disabled={loading}
+                    >
+                        {loading ? <ActivityIndicator color="white" /> : <Text style={styles.text}>Verify Email</Text>}
                     </Pressable>
                 </>
             )}
@@ -131,6 +157,9 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         backgroundColor: 'black',
         marginTop: 10,
+    },
+    disabled: {
+        backgroundColor: '#666',
     },
     input: {
         width: 250,

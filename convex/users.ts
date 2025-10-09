@@ -1,12 +1,17 @@
-import { query } from './_generated/server';
+import { query, mutation } from './_generated/server';
 import { Infer, v } from 'convex/values';
 
+// ---------------- Schema ----------------
 const usersSchema = v.object({
     _id: v.id('users'),
     email: v.string(),
+    username: v.string(),
+    clerkId: v.string(),
 });
 
 export type User = Infer<typeof usersSchema>;
+
+// ---------------- Queries ----------------
 
 /**
  * Get a single user by ID.
@@ -17,5 +22,53 @@ export const getUser = query({
     handler: async (ctx, { id }) => {
         const user = await ctx.db.get(id);
         return user ?? null;
+    },
+});
+
+/**
+ * Get a user by Clerk ID.
+ */
+export const getUserByClerkId = query({
+    args: { clerkId: v.string() },
+    handler: async (ctx, { clerkId }) => {
+        return await ctx.db
+            .query('users')
+            .filter((q) => q.eq(q.field('clerkId'), clerkId))
+            .first();
+    },
+});
+
+// ---------------- Mutations ----------------
+
+/**
+ * Ensure a Convex user exists for the currently authenticated Clerk identity.
+ * If none exists, create one.
+ */
+export const createUser = mutation({
+    args: {},
+    handler: async (ctx) => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) throw new Error('Not authenticated');
+
+        const email = identity.email;
+        const username = identity.nickname || identity.name || 'Player';
+        const clerkId = identity.subject;
+
+        // Check if user already exists
+        const existing = await ctx.db
+            .query('users')
+            .filter((q) => q.eq(q.field('email'), email))
+            .first();
+
+        if (existing) return existing._id;
+
+        // Create new user
+        const newUserId = await ctx.db.insert('users', {
+            email: email!,
+            username,
+            clerkId,
+        });
+
+        return newUserId;
     },
 });
