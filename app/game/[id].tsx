@@ -25,15 +25,23 @@ export default function Game() {
     const [shareLink, setShareLink] = useState<string | null>(null);
     const [joining, setJoining] = useState(false);
     const [convexUserId, setConvexUserId] = useState<Id<'users'> | null>(null);
+    const [roundStartedAt, setRoundStartedAt] = useState<number | null>(null);
 
     const { id } = useLocalSearchParams();
     const gameId = Array.isArray(id) ? id[0] : id;
 
     const game = useQuery(api.games.getGame, { id: gameId as Id<'games'> });
+    const activeAtGuess = game?.activeCard ?? [];
+    const turnAtGuess = game?.turn ?? 0;
 
     const startGameMutation = useMutation(api.games.startGame);
     const joinGameMutation = useMutation(api.games.joinGame);
     const takeTurnMutation = useMutation(api.games.takeTurn);
+    const logMistakeMutation = useMutation(api.games.logMistake);
+
+    useEffect(() => {
+        if (game?.turn != null) setRoundStartedAt(Date.now());
+    }, [game?.turn]);
 
     // --- Redirect if not signed in ---
     useEffect(() => {
@@ -119,8 +127,26 @@ export default function Game() {
 
     // --- Guess handler ---
     const guess = async (card: Card, icon: number): Promise<'red' | 'yellow' | 'green'> => {
+        const reactionMs = roundStartedAt ? Date.now() - roundStartedAt : 0;
         const correct = game?.activeCard.includes(icon);
+
         if (!correct) {
+            // log mistake for results screen
+            try {
+                if (gameId && convexUserId) {
+                    await logMistakeMutation({
+                        gameId: gameId as Id<'games'>,
+                        userId: convexUserId as Id<'users'>,
+                        guessedSymbol: icon,
+                        playerTopCard: card,
+                        reactionMs,
+                        activeAtGuess,
+                        turnAtGuess,
+                    });
+                }
+            } catch (e) {
+                console.warn('logMistake failed', e);
+            }
             playSound(0);
             return 'red';
         }
@@ -131,6 +157,9 @@ export default function Game() {
                 userId: convexUserId as Id<'users'>,
                 card,
                 turn: game!.turn,
+                guessedSymbol: icon,
+                reactionMs,
+                activeAtGuess,
             });
 
             if (tooSlow) {
@@ -162,7 +191,7 @@ export default function Game() {
                 <View style={styles.qrContainer}>
                     <Text style={styles.qrText}>Share this game</Text>
                     <QrCodeSvg value={shareLink} frameSize={160} />
-                    <Pressable style={[styles.button, { marginTop: 10 }]} onPress={shareGameLink}>
+                    <Pressable style={[styles.button, { marginTop: 40 }]} onPress={shareGameLink}>
                         <Text style={styles.text}>Share Link</Text>
                     </Pressable>
                 </View>

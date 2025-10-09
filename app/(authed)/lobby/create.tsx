@@ -1,10 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useMutation } from 'convex/react';
 import { View, Text, StyleSheet, Pressable, ActivityIndicator, Alert, KeyboardAvoidingView } from 'react-native';
 
 import { api } from '../../../convex/_generated/api';
+
+const isPrime = (x: number) => {
+    if (x < 2) return false;
+    for (let i = 2; i * i <= x; i++) if (x % i === 0) return false;
+    return true;
+};
 
 /**
  * Compute Dobble deck properties
@@ -15,6 +21,21 @@ const deckInfo = (n: number) => ({
     iconsPerCard: n + 1,
 });
 
+const MIN_CARDS_PER_PLAYER = 5;
+
+const computeAvailableDeckSizes = (players: number) => {
+    const sizes: number[] = [];
+    for (let deckSize = 4; deckSize <= 8; deckSize++) {
+        const n = deckSize - 1;
+        if (!isPrime(n)) continue;
+        const { cards } = deckInfo(n);
+        // subtract 1 for the centre card you pop before dealing
+        const perPlayer = Math.floor((cards - 1) / players);
+        if (perPlayer >= MIN_CARDS_PER_PLAYER) sizes.push(deckSize);
+    }
+    return sizes;
+};
+
 export default function Create() {
     const [loading, setLoading] = useState(false);
     const [noExpectedPlayers, setNoExpectedPlayers] = useState(2);
@@ -22,22 +43,13 @@ export default function Create() {
 
     const createGameMutation = useMutation(api.games.createGame);
 
-    // Derived list of valid deck sizes based on player count
-    const availableDeckSizes = useMemo(() => {
-        return [4, 5, 6, 7, 8].filter((size) => {
-            const n = size - 1;
-            const { cards } = deckInfo(n);
-            const cardsPerPlayer = Math.floor(cards / noExpectedPlayers);
-            return cardsPerPlayer >= 5; // ensure enough cards per player
-        });
-    }, [noExpectedPlayers]);
+    const availableDeckSizes = useMemo(() => computeAvailableDeckSizes(noExpectedPlayers), [noExpectedPlayers]);
 
-    // Ensure selected deckSize always valid
-    useMemo(() => {
-        if (!availableDeckSizes.includes(deckSize)) {
+    useEffect(() => {
+        if (!availableDeckSizes.includes(deckSize) && availableDeckSizes.length) {
             setDeckSize(availableDeckSizes[0]);
         }
-    }, [availableDeckSizes]);
+    }, [availableDeckSizes, deckSize]);
 
     const createGame = async () => {
         try {

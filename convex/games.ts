@@ -1,3 +1,4 @@
+// convex/games.ts
 import { query, mutation } from './_generated/server';
 import { Infer, v } from 'convex/values';
 import { generateDobbleDeck, shuffle } from '../src/utils/game';
@@ -200,6 +201,7 @@ export const startGame = mutation({
 
 /**
  * Process a player turn (atomic, OCC-safe).
+ * Uses client snapshots to ensure correct telemetry when racing.
  */
 export const takeTurn = mutation({
     args: {
@@ -207,16 +209,30 @@ export const takeTurn = mutation({
         userId: v.id('users'),
         card: v.array(v.number()),
         turn: v.number(),
+        guessedSymbol: v.number(),
+        reactionMs: v.number(),
+        activeAtGuess: v.array(v.number()),
     },
-    handler: async (ctx, { gameId, userId, card, turn }) => {
+    handler: async (ctx, { gameId, userId, card, turn, guessedSymbol, reactionMs, activeAtGuess }) => {
         const game = await ctx.db.get(gameId);
         if (!game) throw new Error('Game not found');
 
-        // Too slow if someone already advanced the turn
+        // If someone already played this turn, log as tooSlow against what the player saw
         if (turn !== game.turn) {
-            return { tooSlow: true };
+            await ctx.db.insert('turns', {
+                gameId,
+                turn,
+                playerId: userId,
+                guessedSymbol,
+                activeCard: activeAtGuess,
+                playerTopCard: card,
+                reactionMs,
+                outcome: 'tooSlow',
+            });
+            return { tooSlow: true, accepted: false };
         }
 
+        // Proceed: pop player's top card & update score
         const details = await ctx.db
             .query('game_details')
             .filter((q) => q.and(q.eq(q.field('gameId'), gameId), q.eq(q.field('userId'), userId)))
@@ -232,8 +248,19 @@ export const takeTurn = mutation({
             score: details.score + 1,
         });
 
+        // Log the winning attempt (use the actual current center card)
+        await ctx.db.insert('turns', {
+            gameId,
+            turn: game.turn,
+            playerId: userId,
+            guessedSymbol,
+            activeCard: game.activeCard,
+            playerTopCard: card,
+            reactionMs,
+            outcome: 'correct',
+        });
+
         if (updatedCards.length === 0) {
-            // Game finished
             await ctx.db.patch(gameId, {
                 activeCard: card,
                 turn: game.turn + 1,
@@ -241,14 +268,44 @@ export const takeTurn = mutation({
                 winner: userId,
             });
         } else {
-            // Next round
             await ctx.db.patch(gameId, {
                 activeCard: shuffle(card),
                 turn: game.turn + 1,
             });
         }
 
-        return { tooSlow: false };
+        return { tooSlow: false, accepted: true };
+    },
+});
+
+/**
+ * Log a wrong tap without changing game state.
+ * Uses client snapshots to keep telemetry truthful under races.
+ */
+export const logMistake = mutation({
+    args: {
+        gameId: v.id('games'),
+        userId: v.id('users'),
+        guessedSymbol: v.number(),
+        playerTopCard: v.array(v.number()),
+        reactionMs: v.number(),
+        activeAtGuess: v.array(v.number()),
+        turnAtGuess: v.number(),
+    },
+    handler: async (ctx, { gameId, userId, guessedSymbol, playerTopCard, reactionMs, activeAtGuess, turnAtGuess }) => {
+        const game = await ctx.db.get(gameId);
+        if (!game) throw new Error('Game not found');
+
+        await ctx.db.insert('turns', {
+            gameId,
+            turn: turnAtGuess,
+            playerId: userId,
+            guessedSymbol,
+            activeCard: activeAtGuess,
+            playerTopCard,
+            reactionMs,
+            outcome: 'wrong',
+        });
     },
 });
 

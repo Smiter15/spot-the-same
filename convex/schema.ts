@@ -6,6 +6,7 @@ export default defineSchema({
         email: v.string(),
         username: v.optional(v.string()),
         clerkId: v.optional(v.string()),
+        avatarUrl: v.optional(v.string()),
     }),
 
     games: defineTable({
@@ -26,5 +27,20 @@ export default defineSchema({
         userId: v.union(v.id('users'), v.null()),
         cards: v.array(v.array(v.number())),
         score: v.number(),
+    }),
+
+    turns: defineTable({
+        gameId: v.id('games'),
+        turn: v.number(),
+        playerId: v.id('users'),
+        guessedSymbol: v.number(),
+        activeCard: v.array(v.number()),
+        playerTopCard: v.array(v.number()),
+        reactionMs: v.number(), // client-measured reaction time (ms) from card reveal to tap
+        outcome: v.union(
+            v.literal('correct'), // won the turn
+            v.literal('tooSlow'), // correct but lost OCC race
+            v.literal('wrong'), // tapped a non-matching symbol
+        ),
     }),
 });

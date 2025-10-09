@@ -15,6 +15,7 @@ import type {
 } from "convex/server";
 import type * as gameDetails from "../gameDetails.js";
 import type * as games from "../games.js";
+import type * as turns from "../turns.js";
 import type * as users from "../users.js";
 import type * as utils from "../utils.js";
 
@@ -29,6 +30,7 @@ import type * as utils from "../utils.js";
 declare const fullApi: ApiFromModules<{
   gameDetails: typeof gameDetails;
   games: typeof games;
+  turns: typeof turns;
   users: typeof users;
   utils: typeof utils;
 }>;

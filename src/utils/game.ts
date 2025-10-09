@@ -1,15 +1,14 @@
 import { Card } from '../../types';
 
 // 4-deck (n = 3 → 13 cards and 13 icons)
-// 5-deck (n = 4 → 21 cards and 21 icons)
 // 6-deck (n = 5 → 31 cards and 31 icons)
-// 7-deck (n = 6 → 43 cards and 43 icons)
 // 8-deck (n = 7 → 57 cards and 57 icons)
-// 9-deck (n = 8 → 73 cards and 73 icons)
-// 10-deck (n = 9 → 91 cards and 91 icons)
-// 11-deck (n = 10 → 111 cards and 111 icons)
 // 12-deck (n = 11 → 133 cards and 133 icons)
-// 13-deck (n = 12 → 157 cards and 157 icons)
+// 14-deck (n = 13 → 183 cards and 183 icons)
+// 18-deck (n = 17 → 307 cards and 307 icons)
+// 20-deck (n = 19 → 381 cards and 381 icons)
+
+// It is possible to generate decks where n is NOT a prime number but will require a different algorithm
 
 export const generateDobbleDeck = (n: number): Card[] => {
     const deck: Card[] = [];

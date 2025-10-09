@@ -2,11 +2,16 @@ import { Redirect, Tabs } from 'expo-router';
 import { useUser } from '@clerk/clerk-expo';
 import { Ionicons } from '@expo/vector-icons';
 
+import { useSyncUserToConvex } from '../../src/hooks/useSyncUserToConvex';
+
 export default function AuthedLayout() {
     const { isLoaded, isSignedIn } = useUser();
 
     if (!isLoaded) return null;
     if (!isSignedIn) return <Redirect href="/" />;
+
+    // Sync Clerk → Convex (name + avatar) once per session for the signed-in user
+    useSyncUserToConvex();
 
     return (
         <Tabs
@@ -32,7 +37,7 @@ export default function AuthedLayout() {
                     tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" color={color} size={size} />,
                 }}
             />
-            {/* Hide game and settings from the tab bar */}
+            {/* Hide extra routes from the tab bar */}
             <Tabs.Screen name="lobby/create" options={{ href: null }} />
             <Tabs.Screen name="lobby/join" options={{ href: null }} />
         </Tabs>
