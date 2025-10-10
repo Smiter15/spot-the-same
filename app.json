@@ -25,6 +25,6 @@
         "web": {
             "favicon": "./assets/favicon.png"
         },
-        "plugins": ["expo-router", "expo-web-browser", "expo-audio"]
+        "plugins": ["expo-router", "expo-web-browser", "expo-audio", "expo-asset"]
     }
 }

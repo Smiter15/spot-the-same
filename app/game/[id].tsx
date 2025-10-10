@@ -6,6 +6,7 @@ import { useQuery, useMutation } from 'convex/react';
 import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 import { QrCodeSvg } from 'react-native-qr-svg';
+import { Asset } from 'expo-asset';
 import { useAudioPlayer } from 'expo-audio';
 import { useUser } from '@clerk/clerk-expo';
 
@@ -111,13 +112,31 @@ export default function Game() {
     const soundTooSlow = useAudioPlayer(require('../../assets/audio/fart.mp3'));
     const soundCorrect = useAudioPlayer(require('../../assets/audio/ting.mp3'));
 
+    useEffect(() => {
+        let mounted = true;
+        (async () => {
+            try {
+                // Pre-download audio assets so first play doesn't fetch/decompress from bundle
+                await Promise.all([
+                    Asset.fromModule(require('../../assets/audio/quack.mp3')).downloadAsync(),
+                    Asset.fromModule(require('../../assets/audio/fart.mp3')).downloadAsync(),
+                    Asset.fromModule(require('../../assets/audio/ting.mp3')).downloadAsync(),
+                ]);
+            } catch (e) {
+                console.warn('Audio warmup failed (non-fatal):', e);
+            }
+        })();
+        return () => {
+            mounted = false;
+        };
+    }, []);
+
     const playSound = (i: number) => {
-        const sounds = [soundWrong, soundTooSlow, soundCorrect];
-        const player = sounds[i];
-        if (player) {
-            player.seekTo(0);
-            player.play();
-        }
+        const players = [soundWrong, soundTooSlow, soundCorrect];
+        const p = players[i];
+        if (!p) return;
+        p.seekTo(0);
+        p.play();
     };
 
     // --- Share / Copy ---
