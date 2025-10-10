@@ -1,4 +1,3 @@
-// app/(authed)/lobby/join.tsx
 import { useEffect, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
@@ -17,6 +16,7 @@ import {
 } from 'react-native';
 import * as Linking from 'expo-linking';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { useUser } from '@clerk/clerk-expo';
 import { api } from '../../../convex/_generated/api';
 import { Id } from '../../../convex/_generated/dataModel';
 
@@ -35,16 +35,19 @@ export default function JoinGame() {
 
     const [joinGameId, setJoinGameId] = useState('');
 
+    const { user } = useUser();
     const joinGameMutation = useMutation(api.games.joinGame);
+    const syncFromClerk = useMutation(api.users.syncFromClerk);
 
     useEffect(() => {
         if (mode === 'scan' && permission?.status == null) {
-            requestPermission();
+            requestPermission(); // ask on first visit
         }
     }, [mode, permission?.status, requestPermission]);
 
     const extractGameId = (value: string): string | null => {
         try {
+            // If it's not a URL, treat as raw ID
             if (!/^https?:|^[a-z]+:\/\//i.test(value)) return value.trim();
             const parsed = Linking.parse(value);
             const fullPath = parsed.path || '';
@@ -62,8 +65,20 @@ export default function JoinGame() {
         }
         try {
             setBusy(true);
+
+            // 1) Ensure this Clerk user exists in Convex (upsert)
+            await syncFromClerk({
+                username: user?.username || user?.fullName || user?.firstName || 'Player',
+                avatarUrl: user?.imageUrl,
+            });
+
+            // 2) Now safely join the game
             const { userId } = await joinGameMutation({ gameId: gameId as Id<'games'> });
-            router.replace({ pathname: `/game/${gameId}`, params: { userId: String(userId) } });
+
+            router.replace({
+                pathname: `/game/${gameId}`,
+                params: { userId: String(userId) },
+            });
         } catch (err: any) {
             console.error(err);
             Alert.alert('Error', 'Could not join the game. Check the code and try again.');
@@ -72,6 +87,7 @@ export default function JoinGame() {
         }
     };
 
+    // Camera QR handler (expo-camera)
     const onBarcodeScanned = ({ data }: { data: string }) => {
         const now = Date.now();
         if (scanned || now - cooldown.current < 1200 || busy) return;
@@ -146,6 +162,7 @@ export default function JoinGame() {
                             <View style={styles.scannerBox}>
                                 <CameraView
                                     style={StyleSheet.absoluteFillObject}
+                                    // Only QR to reduce noise
                                     barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                                     onBarcodeScanned={({ data }) => onBarcodeScanned({ data })}
                                 />

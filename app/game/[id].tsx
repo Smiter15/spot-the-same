@@ -3,6 +3,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Pressable, StyleSheet, Text, View, Alert, Share, ActivityIndicator } from 'react-native';
 import { useQuery, useMutation } from 'convex/react';
+import * as Clipboard from 'expo-clipboard';
 import * as Linking from 'expo-linking';
 import { QrCodeSvg } from 'react-native-qr-svg';
 import { useAudioPlayer } from 'expo-audio';
@@ -101,6 +102,14 @@ export default function Game() {
         }
     };
 
+    // --- Share / Copy ---
+    const copyGameId = async () => {
+        if (gameId) {
+            await Clipboard.setStringAsync(gameId);
+            Alert.alert('Copied!', 'Game ID copied to clipboard.');
+        }
+    };
+
     const shareGameLink = async () => {
         if (!shareLink) return;
         await Share.share({
@@ -173,6 +182,10 @@ export default function Game() {
             <Text>
                 Waiting for players... {game?.players.length} / {game?.noExpectedPlayers}
             </Text>
+
+            <Pressable style={styles.button} onPress={copyGameId}>
+                <Text style={styles.text}>Copy Game ID</Text>
+            </Pressable>
 
             {shareLink && (
                 <View style={styles.qrContainer}>
