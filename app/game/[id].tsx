@@ -24,6 +24,7 @@ export default function Game() {
     const [score, setScore] = useState(0);
     const [shareLink, setShareLink] = useState<string | null>(null);
     const [joining, setJoining] = useState(false);
+    const [leaving, setLeaving] = useState(false);
     const [convexUserId, setConvexUserId] = useState<Id<'users'> | null>(null);
     const [roundStartedAt, setRoundStartedAt] = useState<number | null>(null);
 
@@ -34,6 +35,7 @@ export default function Game() {
     const activeAtGuess = game?.activeCard ?? [];
     const turnAtGuess = game?.turn ?? 0;
 
+    const leaveGame = useMutation(api.games.leaveGame);
     const startGameMutation = useMutation(api.games.startGame);
     const joinGameMutation = useMutation(api.games.joinGame);
     const takeTurnMutation = useMutation(api.games.takeTurn);
@@ -87,6 +89,22 @@ export default function Game() {
         };
         maybeStartGame();
     }, [game]);
+
+    const backToLobby = async () => {
+        if (leaving || !game?._id) {
+            router.replace('/(authed)/lobby');
+            return;
+        }
+
+        try {
+            setLeaving(true);
+            await leaveGame({ gameId: game._id });
+        } catch (e) {
+            console.warn('leaveGame failed', e);
+        } finally {
+            router.replace('/(authed)/lobby');
+        }
+    };
 
     // --- Sounds ---
     const soundWrong = useAudioPlayer(require('../../assets/audio/quack.mp3'));
@@ -206,8 +224,8 @@ export default function Game() {
                 )}
             </View>
 
-            <Pressable style={styles.backLink} onPress={() => router.replace('/(authed)/lobby')}>
-                <Text style={styles.backText}>← Back to Lobby</Text>
+            <Pressable style={[styles.backLink, leaving && { opacity: 0.6 }]} onPress={backToLobby} disabled={leaving}>
+                <Text style={styles.backText}>{leaving ? 'Leaving…' : '← Back to Lobby'}</Text>
             </Pressable>
         </View>
     );
@@ -349,7 +367,7 @@ const styles = StyleSheet.create({
     backText: { color: '#2F80ED', fontSize: 15, fontWeight: '700' },
 
     // Playing UI
-    playWrap: { flex: 1 },
+    playWrap: { flex: 1, paddingTop: 20 },
     topBar: {
         flexDirection: 'row',
         alignItems: 'center',

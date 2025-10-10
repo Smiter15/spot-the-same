@@ -309,6 +309,41 @@ export const logMistake = mutation({
     },
 });
 
+export const leaveGame = mutation({
+    args: { gameId: v.id('games') },
+    handler: async (ctx, { gameId }) => {
+        const userId = await getCurrentUserId(ctx);
+
+        const game = await ctx.db.get(gameId);
+        if (!game) throw new Error('Game not found');
+
+        // If user isn't in the game, no-op
+        if (!game.players.includes(userId)) return { ok: true, started: game.started };
+
+        // Remove from players array
+        const remaining = game.players.filter((p) => p !== userId);
+
+        if (!game.started) {
+            // Pre-start: free the seat so a future joiner can take it
+            const seat = await ctx.db
+                .query('game_details')
+                .filter((q) => q.and(q.eq(q.field('gameId'), gameId), q.eq(q.field('userId'), userId)))
+                .first();
+            if (seat) {
+                await ctx.db.patch(seat._id, { userId: null });
+            }
+
+            await ctx.db.patch(gameId, { players: remaining });
+        } else {
+            // Mid-game: just remove them; their stack becomes inactive
+            await ctx.db.patch(gameId, { players: remaining });
+            // Optional: you could log a "left" turn or handle end-game if only one player remains.
+        }
+
+        return { ok: true, started: game.started };
+    },
+});
+
 /**
  * Delete a game and its associated data.
  */
