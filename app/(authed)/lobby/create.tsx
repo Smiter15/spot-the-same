@@ -64,7 +64,7 @@ export default function Create() {
                 deckSize,
             });
             router.push({
-                pathname: `/(authed)/game/${gameId}`,
+                pathname: `/game/${gameId}`,
                 params: { userId: String(userId) },
             });
         } catch (err) {

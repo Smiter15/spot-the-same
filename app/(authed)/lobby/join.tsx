@@ -63,7 +63,7 @@ export default function JoinGame() {
         try {
             setBusy(true);
             const { userId } = await joinGameMutation({ gameId: gameId as Id<'games'> });
-            router.replace({ pathname: `/(authed)/game/${gameId}`, params: { userId: String(userId) } });
+            router.replace({ pathname: `/game/${gameId}`, params: { userId: String(userId) } });
         } catch (err: any) {
             console.error(err);
             Alert.alert('Error', 'Could not join the game. Check the code and try again.');
