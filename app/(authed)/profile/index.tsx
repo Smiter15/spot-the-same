@@ -5,6 +5,7 @@ import { router } from 'expo-router';
 export default function Profile() {
     const { signOut } = useAuth();
     const { user } = useUser();
+    console.log('User:', user);
 
     const handleSignOut = async () => {
         await signOut();
@@ -15,19 +16,17 @@ export default function Profile() {
         <View style={styles.container}>
             <Text style={styles.title}>Profile</Text>
 
-            {user?.hasImage && (
-                <View
-                    style={{
-                        width: 100,
-                        height: 100,
-                        borderRadius: 50,
-                        overflow: 'hidden',
-                        marginBottom: 20,
-                    }}
-                >
-                    <Image source={{ uri: user?.imageUrl }} style={{ width: '100%', height: '100%' }} />
-                </View>
-            )}
+            <View
+                style={{
+                    width: 100,
+                    height: 100,
+                    borderRadius: 50,
+                    overflow: 'hidden',
+                    marginBottom: 20,
+                }}
+            >
+                <Image source={{ uri: user?.imageUrl }} style={{ width: '100%', height: '100%' }} />
+            </View>
 
             <Text>
                 Username: {user?.username && user?.username?.charAt(0).toUpperCase() + user?.username?.slice(1)}

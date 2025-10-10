@@ -20,7 +20,7 @@ export default function SignUp({ toggleSignIn }: SignUpProps) {
     const [error, setError] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
 
-    const createUser = useMutation(api.users.createUser);
+    const createUser = useMutation(api.users.syncFromClerk);
 
     const onSignUpPress = async () => {
         if (!isLoaded || loading) return;
@@ -50,13 +50,13 @@ export default function SignUp({ toggleSignIn }: SignUpProps) {
         setLoading(true);
 
         try {
-            const completeSignUp = await signUp.attemptEmailAddressVerification({ code });
-            await setActive({ session: completeSignUp.createdSessionId });
+            const { createdSessionId, username } = await signUp.attemptEmailAddressVerification({ code });
+            await setActive({ session: createdSessionId });
 
             // 🕐 Wait a short moment to ensure Clerk → Convex token sync
             await new Promise((r) => setTimeout(r, 500));
 
-            await createUser();
+            await createUser({ username: username! });
 
             router.replace('(authed)/lobby');
         } catch (err: any) {
