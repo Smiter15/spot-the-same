@@ -131,7 +131,6 @@ export default function Game() {
         const correct = game?.activeCard.includes(icon);
 
         if (!correct) {
-            // log mistake for results screen
             try {
                 if (gameId && convexUserId) {
                     await logMistakeMutation({
@@ -142,7 +141,7 @@ export default function Game() {
                         reactionMs,
                         activeAtGuess,
                         turnAtGuess,
-                    });
+                    } as any); // keep API surface as-is; server can ignore extras
                 }
             } catch (e) {
                 console.warn('logMistake failed', e);
@@ -160,7 +159,7 @@ export default function Game() {
                 guessedSymbol: icon,
                 reactionMs,
                 activeAtGuess,
-            });
+            } as any);
 
             if (tooSlow) {
                 playSound(1);
@@ -176,51 +175,82 @@ export default function Game() {
         }
     };
 
-    // --- UI renderers ---
+    // --- UI renderers (new design) ---
     const renderWaiting = () => (
-        <View style={{ alignItems: 'center', gap: 12 }}>
-            <Text>
-                Waiting for players... {game?.players.length} / {game?.noExpectedPlayers}
+        <View style={styles.waitWrap}>
+            <Text style={styles.waitTitle}>Waiting for players…</Text>
+            <Text style={styles.waitSub}>
+                {game?.players.length} / {game?.noExpectedPlayers}
             </Text>
 
-            <Pressable style={styles.button} onPress={copyGameId}>
-                <Text style={styles.text}>Copy Game ID</Text>
-            </Pressable>
+            <View style={styles.card}>
+                <Text style={styles.cardTitle}>Share this game</Text>
+                {shareLink ? (
+                    <>
+                        <View style={styles.qrBox}>
+                            <QrCodeSvg value={shareLink} frameSize={180} />
+                        </View>
 
-            {shareLink && (
-                <View style={styles.qrContainer}>
-                    <Text style={styles.qrText}>Share this game</Text>
-                    <QrCodeSvg value={shareLink} frameSize={160} />
-                    <Pressable style={[styles.button, { marginTop: 40 }]} onPress={shareGameLink}>
-                        <Text style={styles.text}>Share Link</Text>
-                    </Pressable>
-                </View>
-            )}
+                        <Pressable style={styles.primary} onPress={shareGameLink}>
+                            <Text style={styles.primaryText}>Share Link</Text>
+                        </Pressable>
+
+                        <Pressable style={styles.secondary} onPress={copyGameId}>
+                            <Text style={styles.secondaryText}>Copy Code</Text>
+                        </Pressable>
+
+                        <Text style={styles.codeHint}>Code: {String(gameId)}</Text>
+                    </>
+                ) : (
+                    <Text style={styles.cardBody}>Preparing link…</Text>
+                )}
+            </View>
+
+            <Pressable style={styles.backLink} onPress={() => router.replace('/(authed)/lobby')}>
+                <Text style={styles.backText}>← Back to Lobby</Text>
+            </Pressable>
         </View>
     );
 
     const renderPlaying = () => (
-        <View style={{ alignItems: 'center', gap: 12 }}>
-            <Text>Score: {score}</Text>
-            {game?.activeCard && <ActiveCard card={game.activeCard} />}
-            <PlayerCards gameId={gameId ?? ''} userId={convexUserId ?? ''} guess={guess} />
+        <View style={styles.playWrap}>
+            {/* Top bar */}
+            <View style={styles.topBar}>
+                <Text style={styles.topTitle}>Spot the Same!</Text>
+                <View style={styles.scorePill}>
+                    <Text style={styles.scorePillText}>Score: {score}</Text>
+                </View>
+            </View>
+
+            {/* Center card */}
+            <View style={styles.centerCardWrap}>{game?.activeCard && <ActiveCard card={game.activeCard} />}</View>
+
+            {/* Player hand */}
+            <View style={styles.playerHand}>
+                <PlayerCards gameId={gameId ?? ''} userId={convexUserId ?? ''} guess={guess} />
+            </View>
         </View>
     );
 
+    // --- Render states ---
     if (!isLoaded || joining) {
         return (
-            <View style={[styles.container, { justifyContent: 'center' }]}>
-                <ActivityIndicator size="large" color="black" />
-                <Text style={{ marginTop: 10 }}>Joining game...</Text>
+            <View style={styles.screenLoading}>
+                <StatusBar style="dark" />
+                <ActivityIndicator size="large" color="#2F80ED" />
+                <Text style={styles.loadingText}>Joining game…</Text>
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
-            <StatusBar style="auto" />
+        <View style={styles.screen}>
+            <StatusBar style="dark" />
             {!game ? (
-                <Text>Loading...</Text>
+                <View style={styles.screenLoading}>
+                    <ActivityIndicator size="large" color="#2F80ED" />
+                    <Text style={styles.loadingText}>Loading…</Text>
+                </View>
             ) : game.players.length !== game.noExpectedPlayers ? (
                 renderWaiting()
             ) : game.started && !game.finished ? (
@@ -232,35 +262,118 @@ export default function Game() {
     );
 }
 
+const WIDTH = 360;
+
 const styles = StyleSheet.create({
-    container: {
-        paddingTop: 100,
+    // Screen shells
+    screen: {
         flex: 1,
-        backgroundColor: '#fff',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
+        backgroundColor: '#F6F8FB',
         paddingHorizontal: 20,
+        paddingTop: 40,
     },
-    button: {
+    screenLoading: {
+        flex: 1,
+        backgroundColor: '#F6F8FB',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 32,
-        borderRadius: 6,
-        backgroundColor: 'black',
+        gap: 10,
     },
-    text: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: 'white',
+    loadingText: { color: '#5D6B88', fontSize: 15 },
+
+    // Waiting UI
+    waitWrap: {
+        flex: 1,
+        alignItems: 'center',
+        paddingTop: 30,
     },
-    qrContainer: {
+    waitTitle: { fontSize: 26, fontWeight: '900', color: '#0B1220' },
+    waitSub: { marginTop: 6, fontSize: 15, color: '#5D6B88' },
+
+    card: {
         marginTop: 20,
+        width: '100%',
+        maxWidth: WIDTH,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
         alignItems: 'center',
     },
-    qrText: {
-        fontSize: 16,
-        fontWeight: '600',
+    cardTitle: { fontSize: 16, fontWeight: '800', color: '#0B1220', marginBottom: 10 },
+    cardBody: { fontSize: 14, color: '#5D6B88' },
+
+    qrBox: {
+        width: 220,
+        height: 220,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 16,
+        backgroundColor: '#F6F8FB',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        marginBottom: 16,
+    },
+
+    // Buttons (primary/secondary)
+    primary: {
+        marginTop: 6,
+        width: '100%',
+        height: 56,
+        backgroundColor: '#2F80ED',
+        borderRadius: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#2F80ED',
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 6 },
+    },
+    primaryText: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' },
+
+    secondary: {
+        marginTop: 10,
+        width: '100%',
+        height: 52,
+        backgroundColor: '#E4F0FF',
+        borderRadius: 26,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    secondaryText: { color: '#2F80ED', fontSize: 16, fontWeight: '800' },
+
+    codeHint: { marginTop: 10, color: '#5D6B88', fontSize: 13 },
+
+    backLink: { marginTop: 18 },
+    backText: { color: '#2F80ED', fontSize: 15, fontWeight: '700' },
+
+    // Playing UI
+    playWrap: { flex: 1 },
+    topBar: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 10,
+    },
+    topTitle: { fontSize: 20, fontWeight: '900', color: '#0B1220' },
+    scorePill: {
+        backgroundColor: '#EDEFF4',
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderRadius: 999,
+    },
+    scorePillText: { fontSize: 14, fontWeight: '800', color: '#0B1220' },
+
+    centerCardWrap: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 6,
         marginBottom: 8,
+    },
+    playerHand: {
+        flex: 1,
+        alignItems: 'center',
+        justifyContent: 'flex-start',
     },
 });
