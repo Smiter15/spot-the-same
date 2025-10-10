@@ -5,7 +5,6 @@ import { router } from 'expo-router';
 export default function Profile() {
     const { signOut } = useAuth();
     const { user } = useUser();
-    console.log('User:', user);
 
     const handleSignOut = async () => {
         await signOut();
