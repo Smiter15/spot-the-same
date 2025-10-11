@@ -12,21 +12,27 @@ export default function Lobby() {
     const goRules = () => router.push('/(authed)/lobby/rules'); // optional
     const goEnterCode = () => router.push('/(authed)/lobby/join?mode=code'); // fallback
 
+    const displayName = user?.username || user?.firstName || 'Player';
+
     return (
         <View style={styles.screen}>
-            <View style={styles.header}>
-                <Text style={styles.title}>Spot the Same!</Text>
+            {/* Big title */}
+            <Text style={styles.bigTitle}>Spot the Same!</Text>
 
-                <Pressable onPress={goProfile}>
-                    <View style={styles.user}>
-                        <Image source={{ uri: user?.imageUrl }} style={styles.avatar} />
-                        <Text style={styles.username}>{user?.username || user?.firstName || 'Player'}</Text>
-                    </View>
-                </Pressable>
-            </View>
+            {/* Centered avatar + name */}
+            <Pressable style={styles.centerHeader} onPress={goProfile}>
+                <View style={styles.avatarWrap}>
+                    {user?.imageUrl ? (
+                        <Image source={{ uri: user.imageUrl }} style={styles.avatar} />
+                    ) : (
+                        <View style={[styles.avatar, { backgroundColor: '#EDEFF4' }]} />
+                    )}
+                </View>
+                <Text style={styles.username}>{displayName}</Text>
+            </Pressable>
 
-            {/* Centered hero actions */}
-            <View style={styles.centerWrap}>
+            {/* Big CTAs */}
+            <View style={styles.actions}>
                 <Pressable style={styles.primary} onPress={goCreate}>
                     <Text style={styles.primaryText}>Create Game</Text>
                     <Text style={styles.primarySub}>Pick players & deck size</Text>
@@ -54,15 +60,25 @@ export default function Lobby() {
 const styles = StyleSheet.create({
     screen: { flex: 1, backgroundColor: '#F6F8FB', paddingHorizontal: 20, paddingTop: 60 },
 
-    // original header look
-    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 },
-    title: { fontSize: 24, fontWeight: '900', color: '#0B1220' },
-    user: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-    avatar: { width: 36, height: 36, borderRadius: 999 },
-    username: { fontSize: 14, fontWeight: '700', color: '#0B1220' },
+    bigTitle: { fontSize: 36, lineHeight: 40, fontWeight: '900', color: '#0B1220', textAlign: 'center' },
 
-    // centered large CTAs
-    centerWrap: { flex: 1, alignItems: 'stretch', justifyContent: 'center', gap: 16 },
+    centerHeader: {
+        alignItems: 'center',
+        marginTop: 18,
+        marginBottom: 10,
+    },
+    avatarWrap: {
+        width: 110,
+        height: 110,
+        borderRadius: 999,
+        overflow: 'hidden',
+        borderWidth: 4,
+        borderColor: '#EDEFF4',
+    },
+    avatar: { width: '100%', height: '100%', borderRadius: 999 },
+    username: { marginTop: 10, fontSize: 18, fontWeight: '800', color: '#0B1220' },
+
+    actions: { flex: 1, alignItems: 'stretch', justifyContent: 'center', gap: 16 },
 
     primary: {
         backgroundColor: '#2F80ED',

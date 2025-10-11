@@ -1,12 +1,11 @@
-import { useState } from 'react';
+// app/(authed)/profile/index.tsx
+import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Image, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { useAuth, useUser } from '@clerk/clerk-expo';
 import { useMutation } from 'convex/react';
-import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
 
 import { api } from '../../../convex/_generated/api';
-
 import useAvatarUpload from '../../../src/hooks/useAvatarUpload';
 
 export default function Profile() {
@@ -19,6 +18,11 @@ export default function Profile() {
     const [busy, setBusy] = useState(false);
     const [uploading, setUploading] = useState(false);
 
+    // keep local name in sync when the Clerk user finishes loading / changes
+    useEffect(() => {
+        if (user?.username != null) setDisplayName(user.username);
+    }, [user?.username]);
+
     const handleSignOut = async () => {
         await signOut();
         router.replace('/');
@@ -26,20 +30,37 @@ export default function Profile() {
 
     const onSaveName = async () => {
         if (!user || busy) return;
-        if (!displayName.trim()) return Alert.alert('Name required', 'Please enter a display name.');
+        const next = displayName.trim();
+        if (!next) return Alert.alert('Name required', 'Please enter a display name.');
 
         try {
             setBusy(true);
-            // Update name in Clerk
-            await user.update({ username: displayName.trim() });
-            // Sync into Convex
-            await syncFromClerk({ username: displayName.trim(), avatarUrl: user.imageUrl });
+            await user.update({ username: next });
+            await syncFromClerk({ username: next, avatarUrl: user.imageUrl });
             Alert.alert('Saved', 'Your name has been updated.');
         } catch (e: any) {
             console.warn('Update username failed', e);
             Alert.alert('Error', 'Could not update your name. Please try again.');
         } finally {
             setBusy(false);
+        }
+    };
+
+    const onChoosePhoto = async () => {
+        try {
+            setUploading(true);
+            await pickFromLibrary();
+        } finally {
+            setUploading(false);
+        }
+    };
+
+    const onTakePhoto = async () => {
+        try {
+            setUploading(true);
+            await takePhoto();
+        } finally {
+            setUploading(false);
         }
     };
 
@@ -51,6 +72,8 @@ export default function Profile() {
             </View>
         );
     }
+
+    const disableActions = busy || uploading;
 
     return (
         <View style={styles.screen}>
@@ -69,17 +92,31 @@ export default function Profile() {
                     </View>
                 </View>
 
+                {/* Avatar actions */}
                 <View style={styles.actionsRow}>
-                    <Pressable style={styles.actionBtn} onPress={pickFromLibrary}>
-                        <Text style={styles.actionText}>Choose Photo</Text>
+                    <Pressable
+                        style={[styles.actionBtn, disableActions && styles.actionDisabled]}
+                        onPress={onChoosePhoto}
+                        disabled={disableActions}
+                    >
+                        {uploading ? (
+                            <ActivityIndicator color="#fff" />
+                        ) : (
+                            <Text style={styles.actionText}>Choose Photo</Text>
+                        )}
                     </Pressable>
-                    <Pressable style={[styles.actionBtn, styles.hollow]} onPress={takePhoto}>
-                        <Text style={[styles.actionText, styles.hollowText]}>Take Photo</Text>
+
+                    <Pressable
+                        style={[styles.actionBtnHollow, disableActions && styles.actionDisabled]}
+                        onPress={onTakePhoto}
+                        disabled={disableActions}
+                    >
+                        <Text style={styles.actionTextHollow}>Take Photo</Text>
                     </Pressable>
                 </View>
 
                 {/* Name */}
-                <View style={{ width: '100%', marginTop: 10 }}>
+                <View style={{ width: '100%', marginTop: 14 }}>
                     <Text style={styles.label}>Display name</Text>
                     <TextInput
                         value={displayName}
@@ -106,23 +143,17 @@ export default function Profile() {
                     </Pressable>
                 </View>
 
-                {/* Email (read-only) */}
-                <View style={{ width: '100%', marginTop: 16 }}>
+                {/* Email (read-only, no pill) */}
+                <View style={{ width: '100%', marginTop: 18 }}>
                     <Text style={styles.label}>Email</Text>
-                    <View style={styles.readonlyField}>
-                        <Text style={styles.readonlyText}>{user?.primaryEmailAddress?.emailAddress}</Text>
-                    </View>
+                    <Text style={styles.readonlyPlain}>{user?.primaryEmailAddress?.emailAddress}</Text>
                 </View>
-
-                {/* Sign out */}
-                <Pressable
-                    style={[styles.secondary, busy && styles.secondaryDisabled]}
-                    onPress={handleSignOut}
-                    disabled={busy}
-                >
-                    <Text style={styles.secondaryText}>Sign Out</Text>
-                </Pressable>
             </View>
+
+            {/* Footer: Sign out link at bottom */}
+            <Pressable style={styles.signOut} onPress={handleSignOut} disabled={disableActions}>
+                <Text style={[styles.signOutText, disableActions && { opacity: 0.6 }]}>Sign Out</Text>
+            </Pressable>
         </View>
     );
 }
@@ -166,26 +197,8 @@ const styles = StyleSheet.create({
     },
     avatarImg: { width: '100%', height: '100%' },
 
-    editBadge: {
-        position: 'absolute',
-        right: -6,
-        bottom: -6,
-        width: 42,
-        height: 42,
-        borderRadius: 999,
-        backgroundColor: '#2F80ED',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderWidth: 3,
-        borderColor: '#fff',
-        shadowColor: '#000',
-        shadowOpacity: 0.15,
-        shadowRadius: 6,
-        shadowOffset: { width: 0, height: 3 },
-    },
-    editBadgeText: { fontSize: 18, color: '#fff' },
-
     label: { fontSize: 13, fontWeight: '800', color: '#5D6B88', marginBottom: 6 },
+
     input: {
         width: '100%',
         height: 56,
@@ -214,39 +227,32 @@ const styles = StyleSheet.create({
     primaryDisabled: { opacity: 0.6 },
     primaryText: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' },
 
-    readonlyField: {
-        height: 56,
-        paddingHorizontal: 18,
-        backgroundColor: '#F6F8FB',
-        borderRadius: 28,
-        justifyContent: 'center',
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-    },
-    readonlyText: { color: '#1E2A44', fontSize: 15 },
+    // Read-only email (plain text, not a pill)
+    readonlyPlain: { color: '#1E2A44', fontSize: 15, fontWeight: '600' },
 
-    secondary: {
-        marginTop: 16,
-        width: '100%',
-        height: 52,
-        backgroundColor: '#E4F0FF',
-        borderRadius: 26,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    secondaryDisabled: { opacity: 0.6 },
-    secondaryText: { color: '#2F80ED', fontSize: 16, fontWeight: '800' },
-
-    actionsRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+    // Avatar actions
+    actionsRow: { flexDirection: 'row', gap: 10, marginTop: 8 },
     actionBtn: {
         backgroundColor: '#2F80ED',
         paddingVertical: 12,
         paddingHorizontal: 16,
         borderRadius: 12,
+        minWidth: 140,
+        alignItems: 'center',
     },
-    hollow: {
+    actionBtnHollow: {
         backgroundColor: '#E4F0FF',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        minWidth: 140,
+        alignItems: 'center',
     },
-    hollowText: { color: '#2F80ED' },
     actionText: { color: '#fff', fontWeight: '800' },
+    actionTextHollow: { color: '#2F80ED', fontWeight: '800' },
+    actionDisabled: { opacity: 0.6 },
+
+    // Footer sign out link
+    signOut: { marginTop: 18, alignSelf: 'center' },
+    signOutText: { color: '#2F80ED', fontSize: 15, fontWeight: '700' },
 });

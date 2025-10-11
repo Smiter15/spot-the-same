@@ -1,6 +1,6 @@
 {
     "expo": {
-        "name": "Spot the same",
+        "name": "Spot the Same",
         "slug": "spot-the-same",
         "version": "1.0.0",
         "orientation": "portrait",
@@ -13,20 +13,54 @@
             "backgroundColor": "#ffffff"
         },
         "assetBundlePatterns": ["**/*"],
+
         "ios": {
             "supportsTablet": true,
             "infoPlist": {
                 "NSCameraUsageDescription": "We use the camera so you can take a profile photo.",
                 "NSPhotoLibraryUsageDescription": "We access your library so you can pick a profile photo."
             }
+            /* When you’re ready to build:
+      , "bundleIdentifier": "com.yourcompany.spotthesame"
+      */
         },
+
         "android": {
             "adaptiveIcon": {
                 "foregroundImage": "./assets/adaptive-icon.png",
                 "backgroundColor": "#ffffff"
             },
-            "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
+            "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE", "READ_MEDIA_IMAGES"],
+            "intentFilters": [
+                {
+                    "action": "VIEW",
+                    "autoVerify": false,
+                    "data": [{ "scheme": "spotthesame" }],
+                    "category": ["BROWSABLE", "DEFAULT"]
+                }
+            ]
+            /* When you’re ready to build:
+      , "package": "com.yourcompany.spotthesame"
+      */
         },
-        "plugins": ["expo-router", "expo-web-browser", "expo-audio", "expo-asset"]
+
+        "plugins": [
+            "expo-router",
+            "expo-web-browser",
+            "expo-audio",
+            "expo-asset"
+            /* "expo-camera" // optional — Expo adds permissions automatically, but you can include it */
+        ]
+
+        /* If/when you add notifications:
+    , "androidStatusBar": { "backgroundColor": "#F6F8FB", "barStyle": "dark-content" }
+    , "android": { "permissions": ["POST_NOTIFICATIONS", ...] }
+    */
+
+        /* If/when you add OTA updates:
+    , "updates": { "url": "https://u.expo.dev/your-eas-project-id" }
+    , "runtimeVersion": { "policy": "appVersion" }
+    , "extra": { "eas": { "projectId": "YOUR_EAS_PROJECT_ID" } }
+    */
     }
 }
