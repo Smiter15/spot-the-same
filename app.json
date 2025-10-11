@@ -14,16 +14,18 @@
         },
         "assetBundlePatterns": ["**/*"],
         "ios": {
-            "supportsTablet": true
+            "supportsTablet": true,
+            "infoPlist": {
+                "NSCameraUsageDescription": "We use the camera so you can take a profile photo.",
+                "NSPhotoLibraryUsageDescription": "We access your library so you can pick a profile photo."
+            }
         },
         "android": {
             "adaptiveIcon": {
                 "foregroundImage": "./assets/adaptive-icon.png",
                 "backgroundColor": "#ffffff"
-            }
-        },
-        "web": {
-            "favicon": "./assets/favicon.png"
+            },
+            "permissions": ["CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
         },
         "plugins": ["expo-router", "expo-web-browser", "expo-audio", "expo-asset"]
     }

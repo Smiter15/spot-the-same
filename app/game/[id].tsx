@@ -254,13 +254,25 @@ export default function Game() {
             {/* Top bar */}
             <View style={styles.topBar}>
                 <Text style={styles.topTitle}>Spot the Same!</Text>
-                <View style={styles.scorePill}>
-                    <Text style={styles.scorePillText}>Score: {score}</Text>
+
+                <View style={styles.pillsRow}>
+                    <View style={styles.pill}>
+                        <Text style={styles.pillText}>Turn {game?.turn}</Text>
+                    </View>
+                    <View style={[styles.pill, { marginLeft: 8 }]}>
+                        <Text style={styles.pillText}>Score {score}</Text>
+                    </View>
                 </View>
             </View>
 
-            {/* Center card */}
-            <View style={styles.centerCardWrap}>{game?.activeCard && <ActiveCard card={game.activeCard} />}</View>
+            {/* Center card (the “board”) */}
+            <View style={styles.boardCard}>{game?.activeCard && <ActiveCard card={game.activeCard} />}</View>
+
+            {/* “Your hand” header */}
+            <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Your Icons</Text>
+                <Text style={styles.sectionHint}>Tap the one that matches the center card</Text>
+            </View>
 
             {/* Player hand */}
             <View style={styles.playerHand}>
@@ -307,7 +319,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#F6F8FB',
         paddingHorizontal: 20,
-        paddingTop: 40,
+        paddingTop: 60,
     },
     screenLoading: {
         flex: 1,
@@ -386,28 +398,52 @@ const styles = StyleSheet.create({
     backText: { color: '#2F80ED', fontSize: 15, fontWeight: '700' },
 
     // Playing UI
-    playWrap: { flex: 1, paddingTop: 20 },
+    playWrap: { flex: 1, paddingTop: 10 },
     topBar: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         marginBottom: 10,
+        paddingHorizontal: 2,
     },
     topTitle: { fontSize: 20, fontWeight: '900', color: '#0B1220' },
-    scorePill: {
+    pillsRow: { flexDirection: 'row', alignItems: 'center' },
+    pill: {
         backgroundColor: '#EDEFF4',
         paddingHorizontal: 14,
         paddingVertical: 8,
         borderRadius: 999,
     },
-    scorePillText: { fontSize: 14, fontWeight: '800', color: '#0B1220' },
+    pillText: { fontSize: 14, fontWeight: '800', color: '#0B1220' },
 
-    centerCardWrap: {
+    // Framed center card ("board")
+    boardCard: {
+        marginTop: 8,
+        width: '100%',
+        maxWidth: WIDTH,
+        alignSelf: 'center',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        paddingVertical: 14,
+        paddingHorizontal: 12,
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
         alignItems: 'center',
         justifyContent: 'center',
-        marginTop: 6,
-        marginBottom: 8,
+        shadowColor: '#000',
+        shadowOpacity: 0.04,
+        shadowRadius: 10,
+        shadowOffset: { width: 0, height: 8 },
     },
+
+    sectionHeader: {
+        marginTop: 14,
+        marginBottom: 6,
+        paddingHorizontal: 2,
+    },
+    sectionTitle: { fontSize: 16, fontWeight: '900', color: '#0B1220' },
+    sectionHint: { marginTop: 2, fontSize: 13, color: '#5D6B88' },
+
     playerHand: {
         flex: 1,
         alignItems: 'center',
